@@ -399,10 +399,10 @@ class ExerciseBlueprintEditorViewModel(
         onDone: () -> Unit,
     ) {
         viewModelScope.launch {
-            val existing = repo.getExerciseBlueprint(blueprintId) ?: return@launch
             val loadTrimmed = loadSpec?.trim()?.takeIf { it.isNotEmpty() }
-            val entity = ExerciseBlueprintEntity(
-                id = blueprintId,
+            val now = System.currentTimeMillis()
+            fun buildEntity(id: Long, createdAtMillis: Long) = ExerciseBlueprintEntity(
+                id = id,
                 name = name.trim(),
                 sets = sets.coerceAtLeast(1),
                 repsPerSet = when (workMode) {
@@ -441,9 +441,16 @@ class ExerciseBlueprintEditorViewModel(
                 equipment = equipment.trim(),
                 muscleGroupsCsv = muscles.toCsv(),
                 restBetweenSetsSeconds = restSeconds.coerceAtLeast(0),
-                createdAtMillis = existing.createdAtMillis,
+                createdAtMillis = createdAtMillis,
             )
-            repo.updateExerciseBlueprint(entity)
+            if (blueprintId == 0L) {
+                repo.insertExerciseBlueprint(buildEntity(0L, now))
+            } else {
+                val existing = repo.getExerciseBlueprint(blueprintId) ?: return@launch
+                repo.updateExerciseBlueprint(
+                    buildEntity(blueprintId, existing.createdAtMillis),
+                )
+            }
             onDone()
         }
     }

@@ -11,9 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,13 @@ fun ExerciseLibraryScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { onEditBlueprint(0L) },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text("Exercice") },
+            )
+        },
         topBar = {
             TopAppBar(
                 title = { Text("Bibliothèque d’exercices") },
@@ -81,8 +90,7 @@ fun ExerciseLibraryScreen(
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                 )
                 Text(
-                    "Ajoute-les à un modèle (Exercice → Depuis la bibliothèque). " +
-                        "Chaque nouvel exercice créé dans un modèle ou ajouté à une séance y est enregistré automatiquement.",
+                    "Utilise le bouton + pour créer une fiche ici. Tu peux aussi ajouter un exercice depuis un modèle ou une séance : il sera alors réutilisable dans la bibliothèque.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp),

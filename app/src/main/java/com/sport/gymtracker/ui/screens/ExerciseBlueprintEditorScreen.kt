@@ -71,6 +71,7 @@ fun ExerciseBlueprintEditorScreen(
     var selectedMuscles by remember { mutableStateOf(setOf<MuscleGroup>()) }
 
     LaunchedEffect(blueprintId) {
+        if (blueprintId == 0L) return@LaunchedEffect
         val bp = app.requireGymRepository().getExerciseBlueprint(blueprintId) ?: return@LaunchedEffect
         name = bp.name
         workMode = ExerciseWorkMode.fromStorage(bp.workMode)
@@ -91,7 +92,9 @@ fun ExerciseBlueprintEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Modifier l’exercice") },
+                title = {
+                    Text(if (blueprintId == 0L) "Nouvel exercice" else "Modifier l’exercice")
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -109,7 +112,11 @@ fun ExerciseBlueprintEditorScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Les changements s’appliquent partout où cet exercice est référencé : bibliothèque, modèles de séance et séances en cours.",
+                if (blueprintId == 0L) {
+                    "La fiche est enregistrée dans la bibliothèque. Tu pourras l’ajouter ensuite à un modèle ou à une séance."
+                } else {
+                    "Les changements s’appliquent partout où cet exercice est référencé : bibliothèque, modèles de séance et séances en cours."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -271,7 +278,7 @@ fun ExerciseBlueprintEditorScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Enregistrer")
+                Text(if (blueprintId == 0L) "Créer l’exercice" else "Enregistrer")
             }
         }
     }
