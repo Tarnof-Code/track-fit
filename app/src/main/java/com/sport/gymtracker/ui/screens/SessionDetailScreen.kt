@@ -91,6 +91,7 @@ fun SessionDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
     var blueprintPickerSelection by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var exerciseNoteDialog by remember { mutableStateOf<String?>(null) }
     val hasValidatedExercise = exercises.any { it.entry.doneInSession }
 
     LaunchedEffect(showBlueprintPicker) {
@@ -232,6 +233,7 @@ fun SessionDetailScreen(
                             ExerciseCardInfoContent(
                                 name = def.name,
                                 notes = def.notes,
+                                onNotesClick = { exerciseNoteDialog = def.notes },
                                 exerciseTypeLabel = def.exerciseTypeLabelFr(),
                                 prescriptionLine = def.prescriptionSummaryShort(),
                                 intensityLine = def.intensitySummary(),
@@ -457,6 +459,22 @@ fun SessionDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDeleteSession = false }) { Text("Annuler") }
+            },
+        )
+    }
+
+    exerciseNoteDialog?.let { noteText ->
+        AlertDialog(
+            onDismissRequest = { exerciseNoteDialog = null },
+            title = { Text("Note") },
+            text = {
+                Text(
+                    noteText,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { exerciseNoteDialog = null }) { Text("OK") }
             },
         )
     }

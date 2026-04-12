@@ -73,7 +73,7 @@ fun ExerciseLibraryScreen(
             }
         }
     var deleteId by remember { mutableStateOf<Long?>(null) }
-    var noteDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var noteDialog by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -147,7 +147,7 @@ fun ExerciseLibraryScreen(
                             )
                             if (bp.notes.isNotBlank()) {
                                 IconButton(
-                                    onClick = { noteDialog = bp.name to bp.notes },
+                                    onClick = { noteDialog = bp.notes },
                                 ) {
                                     Icon(
                                         Icons.Filled.PushPin,
@@ -191,10 +191,10 @@ fun ExerciseLibraryScreen(
         }
     }
 
-    noteDialog?.let { (exerciseName, noteText) ->
+    noteDialog?.let { noteText ->
         AlertDialog(
             onDismissRequest = { noteDialog = null },
-            title = { Text(exerciseName) },
+            title = { Text("Note") },
             text = {
                 Text(
                     noteText,

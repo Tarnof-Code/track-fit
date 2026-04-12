@@ -84,6 +84,7 @@ fun TemplateDetailScreen(
     var metaDesc by remember { mutableStateOf("") }
     var deleteExerciseId by remember { mutableStateOf<Long?>(null) }
     var confirmDeleteTemplate by remember { mutableStateOf(false) }
+    var exerciseNoteDialog by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(template?.id) {
         val t = template ?: return@LaunchedEffect
@@ -219,6 +220,7 @@ fun TemplateDetailScreen(
                         ExerciseCardInfoContent(
                             name = def.name,
                             notes = def.notes,
+                            onNotesClick = { exerciseNoteDialog = def.notes },
                             exerciseTypeLabel = def.exerciseTypeLabelFr(),
                             prescriptionLine = def.prescriptionSummaryShort(),
                             intensityLine = def.intensitySummary(),
@@ -321,6 +323,22 @@ fun TemplateDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { deleteExerciseId = null }) { Text("Annuler") }
+            },
+        )
+    }
+
+    exerciseNoteDialog?.let { noteText ->
+        AlertDialog(
+            onDismissRequest = { exerciseNoteDialog = null },
+            title = { Text("Note") },
+            text = {
+                Text(
+                    noteText,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { exerciseNoteDialog = null }) { Text("OK") }
             },
         )
     }

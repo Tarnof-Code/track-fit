@@ -1,19 +1,29 @@
 package com.sport.gymtracker.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExerciseCardInfoContent(
     name: String,
     notes: String = "",
+    /** Affiche l’icône épingle à côté du titre ; ouvre les notes au clic. */
+    onNotesClick: () -> Unit = {},
     exerciseTypeLabel: String,
     prescriptionLine: String,
     intensityLine: String?,
@@ -29,13 +39,24 @@ fun ExerciseCardInfoContent(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(name, style = MaterialTheme.typography.titleMedium)
-        if (notes.isNotBlank()) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(15.dp),
+        ) {
             Text(
-                notes,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = name,
+                style = MaterialTheme.typography.titleMedium,
             )
+            if (notes.isNotBlank()) {
+                Icon(
+                    imageVector = Icons.Filled.PushPin,
+                    contentDescription = "Afficher les notes",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clickable(onClick = onNotesClick),
+                )
+            }
         }
         Text(
             exerciseTypeLabel,
