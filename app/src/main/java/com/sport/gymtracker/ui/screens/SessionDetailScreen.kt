@@ -187,8 +187,17 @@ fun SessionDetailScreen(
                     if (s.endTimeMillis != null) {
                         Text("Fin : ${fmt.format(Date(s.endTimeMillis!!))}", style = MaterialTheme.typography.bodyMedium)
                     } else {
+                        if (exercises.isEmpty()) {
+                            Text(
+                                "Ajoutez au moins un exercice pour pouvoir terminer la séance.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
+                        }
                         Button(
                             onClick = { confirmEnd = true },
+                            enabled = exercises.isNotEmpty(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 12.dp),
@@ -299,18 +308,23 @@ fun SessionDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val offerSaveAsTemplate =
-                            session?.sourceTemplateId == null && exercises.isNotEmpty()
-                        templateNameDraft = ""
-                        templateDescDraft = ""
-                        templateNameFieldError = false
-                        confirmSaveAsTemplate = false
-                        vm.endSession()
-                        confirmEnd = false
-                        if (offerSaveAsTemplate) {
-                            showSaveAsTemplate = true
+                        if (exercises.isEmpty()) {
+                            confirmEnd = false
+                        } else {
+                            val offerSaveAsTemplate =
+                                session?.sourceTemplateId == null && exercises.isNotEmpty()
+                            templateNameDraft = ""
+                            templateDescDraft = ""
+                            templateNameFieldError = false
+                            confirmSaveAsTemplate = false
+                            vm.endSession()
+                            confirmEnd = false
+                            if (offerSaveAsTemplate) {
+                                showSaveAsTemplate = true
+                            }
                         }
                     },
+                    enabled = exercises.isNotEmpty(),
                 ) { Text("Terminer") }
             },
             dismissButton = {

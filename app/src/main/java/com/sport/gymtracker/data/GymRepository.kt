@@ -315,9 +315,10 @@ class GymRepository(private val db: AppDatabase) {
     suspend fun endSession(sessionId: Long) {
         val session = sessionDao.getById(sessionId) ?: return
         if (session.endTimeMillis != null) return
+        val entries = exerciseDao.listForSession(sessionId)
+        if (entries.isEmpty()) return
         val endMillis = System.currentTimeMillis()
         db.withTransaction {
-            val entries = exerciseDao.listForSession(sessionId)
             for (e in entries) {
                 if (!e.doneInSession) continue
                 val bp = exerciseBlueprintDao.getById(e.exerciseId) ?: continue
