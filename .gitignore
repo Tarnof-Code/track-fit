@@ -1,0 +1,40 @@
+# Gradle
+.gradle/
+build/
+
+# Android / Kotlin
+local.properties
+*.iml
+.cxx/
+.externalNativeBuild/
+.kotlin/
+
+# Sorties & bundles
+*.apk
+*.aab
+*.ap_
+*.dex
+app/release/
+
+# Captures & profils
+captures/
+*.hprof
+
+# IDE — Android Studio / IntelliJ
+.idea/
+*.ipr
+*.iws
+
+# Clés de signature (ne jamais versionner)
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fichiers temporaires / éditeurs
+*.log
+*~
+*.swp
+*.swo
