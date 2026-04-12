@@ -128,7 +128,7 @@ interface WorkoutTemplateDao {
     @Query("DELETE FROM workout_templates WHERE id = :id")
     suspend fun deleteById(id: Long)
 
-    @Query("SELECT * FROM workout_templates ORDER BY createdAtMillis DESC")
+    @Query("SELECT * FROM workout_templates ORDER BY name COLLATE LOCALIZED ASC, id ASC")
     fun observeAll(): Flow<List<WorkoutTemplateEntity>>
 
     @Query(
@@ -136,7 +136,7 @@ interface WorkoutTemplateDao {
         SELECT t.id, t.name, t.description, t.createdAtMillis,
         COALESCE((SELECT COUNT(*) FROM template_exercises e WHERE e.templateId = t.id), 0) AS exerciseCount
         FROM workout_templates t
-        ORDER BY t.createdAtMillis DESC
+        ORDER BY t.name COLLATE LOCALIZED ASC, t.id ASC
         """,
     )
     fun observeListRows(): Flow<List<WorkoutTemplateListRow>>
@@ -147,7 +147,7 @@ interface WorkoutTemplateDao {
     @Query("SELECT * FROM workout_templates WHERE id = :id")
     suspend fun getById(id: Long): WorkoutTemplateEntity?
 
-    @Query("SELECT * FROM workout_templates ORDER BY id ASC")
+    @Query("SELECT * FROM workout_templates ORDER BY name COLLATE LOCALIZED ASC, id ASC")
     suspend fun listAll(): List<WorkoutTemplateEntity>
 
     @Query("SELECT COUNT(*) FROM workout_templates")

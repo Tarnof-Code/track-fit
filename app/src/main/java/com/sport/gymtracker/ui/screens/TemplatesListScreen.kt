@@ -2,7 +2,9 @@ package com.sport.gymtracker.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +22,6 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -49,27 +51,22 @@ fun TemplatesListScreen(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
 
-    Scaffold(
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showNew = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Modèle") },
-            )
-        },
-    ) { padding ->
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 80.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 Text(
                     "Modèles de séance",
                     style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
                 Text(
                     "Un modèle = un programme complet : ajoute autant d’exercices que tu veux (bouton +). " +
@@ -111,6 +108,14 @@ fun TemplatesListScreen(
                 }
             }
         }
+        ExtendedFloatingActionButton(
+            onClick = { showNew = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            text = { Text("Modèle") },
+        )
     }
 
     if (showNew) {
