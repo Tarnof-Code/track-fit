@@ -80,6 +80,10 @@ fun ExerciseEditorScreen(
     LaunchedEffect(exerciseId) {
         val entryId = exerciseId ?: return@LaunchedEffect
         val entry = app.requireGymRepository().getExercise(entryId) ?: return@LaunchedEffect
+        if (entry.doneInSession) {
+            onBack()
+            return@LaunchedEffect
+        }
         val ex = app.requireGymRepository().getExerciseBlueprint(entry.exerciseId) ?: return@LaunchedEffect
         val f = ex.toEditorFormState()
         name = f.name

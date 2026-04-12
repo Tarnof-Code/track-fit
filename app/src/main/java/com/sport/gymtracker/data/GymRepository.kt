@@ -161,6 +161,7 @@ class GymRepository(private val db: AppDatabase) {
         val muscleCounts = mutableMapOf<String, Int>()
         for (s in thisWeek) {
             for (ex in exerciseDao.listForSession(s.id)) {
+                if (!ex.doneInSession) continue
                 val def = exerciseBlueprintDao.getById(ex.exerciseId) ?: continue
                 MuscleGroup.fromStorageList(def.muscleGroupsCsv).forEach { m ->
                     muscleCounts[m.name] = (muscleCounts[m.name] ?: 0) + 1
@@ -225,6 +226,7 @@ class GymRepository(private val db: AppDatabase) {
         val muscleCounts = mutableMapOf<String, Int>()
         for (s in completed) {
             for (ex in exerciseDao.listForSession(s.id)) {
+                if (!ex.doneInSession) continue
                 val def = exerciseBlueprintDao.getById(ex.exerciseId) ?: continue
                 MuscleGroup.fromStorageList(def.muscleGroupsCsv).forEach { m ->
                     muscleCounts[m.name] = (muscleCounts[m.name] ?: 0) + 1
@@ -350,6 +352,8 @@ class GymRepository(private val db: AppDatabase) {
     suspend fun addExercise(entry: ExerciseEntryEntity): Long = exerciseDao.insert(entry)
 
     suspend fun updateExercise(entry: ExerciseEntryEntity) {
+        val current = exerciseDao.getById(entry.id) ?: return
+        if (current.doneInSession) return
         exerciseDao.update(entry)
     }
 

@@ -256,6 +256,7 @@ class ExerciseEditorViewModel(
     ) {
         viewModelScope.launch {
             val existing = exerciseId?.let { repo.getExercise(it) }
+            if (existing?.doneInSession == true) return@launch
             val order = if (exerciseId != null) {
                 existing?.orderIndex ?: repo.nextOrderIndex(sessionId)
             } else {

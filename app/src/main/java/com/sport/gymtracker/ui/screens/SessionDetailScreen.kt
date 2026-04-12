@@ -247,12 +247,14 @@ fun SessionDetailScreen(
                                     .padding(top = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                             ) {
-                                Text(
-                                    text = "Modifier",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.clickable { onEditExercise(line.entry.id) },
-                                )
+                                if (!done) {
+                                    Text(
+                                        text = "Modifier",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.clickable { onEditExercise(line.entry.id) },
+                                    )
+                                }
                                 Text(
                                     text = "Supprimer",
                                     style = MaterialTheme.typography.labelLarge,
@@ -268,7 +270,7 @@ fun SessionDetailScreen(
                             Icon(
                                 imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
                                 contentDescription = if (done) {
-                                    "Annuler la validation"
+                                    "Dévalider l’exercice"
                                 } else {
                                     "Valider l’exercice"
                                 },
