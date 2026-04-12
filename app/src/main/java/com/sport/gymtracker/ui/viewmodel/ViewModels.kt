@@ -4,11 +4,13 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sport.gymtracker.data.ExerciseProgressListItem
 import com.sport.gymtracker.data.GymRepository
 import com.sport.gymtracker.data.HomeState
 import com.sport.gymtracker.data.StatisticsOverview
 import com.sport.gymtracker.data.local.ExerciseBlueprintEntity
 import com.sport.gymtracker.data.local.ExerciseEntryEntity
+import com.sport.gymtracker.data.local.ExercisePerformanceHistoryRow
 import com.sport.gymtracker.data.local.TemplateExerciseEntity
 import com.sport.gymtracker.domain.Difficulty
 import com.sport.gymtracker.domain.ExerciseWorkMode
@@ -20,6 +22,7 @@ import com.sport.gymtracker.domain.toCsv
 import com.sport.gymtracker.requireGymRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -46,6 +49,53 @@ class StatisticsViewModel(private val repo: GymRepository) : ViewModel() {
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 StatisticsViewModel(app.requireGymRepository()) as T
         }
+    }
+}
+
+data class ExerciseProgressDetailUi(
+    val blueprintName: String,
+    val workMode: ExerciseWorkMode,
+    val history: List<ExercisePerformanceHistoryRow>,
+)
+
+class ExerciseProgressListViewModel(private val repo: GymRepository) : ViewModel() {
+    val items: StateFlow<List<ExerciseProgressListItem>> =
+        repo.observeExerciseProgressList()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    companion object {
+        fun factory(app: Application) = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                ExerciseProgressListViewModel(app.requireGymRepository()) as T
+        }
+    }
+}
+
+class ExerciseProgressDetailViewModel(
+    private val repo: GymRepository,
+    private val blueprintId: Long,
+) : ViewModel() {
+    val ui: StateFlow<ExerciseProgressDetailUi?> =
+        combine(
+            repo.observeExerciseBlueprint(blueprintId),
+            repo.observeExercisePerformanceHistory(blueprintId),
+        ) { bp, hist ->
+            if (bp == null) return@combine null
+            ExerciseProgressDetailUi(
+                blueprintName = bp.name,
+                workMode = ExerciseWorkMode.fromStorage(bp.workMode),
+                history = hist,
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    class Factory(
+        private val app: Application,
+        private val blueprintId: Long,
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            ExerciseProgressDetailViewModel(app.requireGymRepository(), blueprintId) as T
     }
 }
 
@@ -116,7 +166,7 @@ class SessionDetailViewModel(
         viewModelScope.launch {
             val ex = repo.getExercise(exerciseId) ?: return@launch
             if (ex.sessionId != sessionId) return@launch
-            repo.updateExercise(ex.copy(doneInSession = done))
+            repo.updateExerciseDoneInSession(exerciseId, done)
         }
     }
 

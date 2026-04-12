@@ -1,5 +1,6 @@
 package com.sport.gymtracker.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -54,7 +55,58 @@ interface ExerciseEntryDao {
 
     @Query("SELECT COUNT(*) FROM exercise_entries WHERE exerciseId = :exerciseId")
     suspend fun countByExerciseId(exerciseId: Long): Int
+
+    @Query(
+        """
+        SELECT e.exerciseId AS exerciseId, COUNT(*) AS pointCount
+        FROM exercise_entries e
+        WHERE e.perfCapturedAtMillis IS NOT NULL
+        GROUP BY e.exerciseId
+        ORDER BY e.exerciseId ASC
+        """,
+    )
+    fun observeExerciseProgressSummaries(): Flow<List<ExerciseProgressSummaryRow>>
+
+    @Query(
+        """
+        SELECT s.startTimeMillis AS sessionStartMillis,
+               e.perfCapturedAtMillis AS perfCapturedAtMillis,
+               e.perfWorkMode AS perfWorkMode,
+               e.perfSets AS perfSets,
+               e.perfRepsPerSet AS perfRepsPerSet,
+               e.perfDurationSecondsPerSet AS perfDurationSecondsPerSet,
+               e.perfDurationMinutesPerSet AS perfDurationMinutesPerSet,
+               e.perfLoadKg AS perfLoadKg,
+               e.perfLoadSpec AS perfLoadSpec,
+               e.perfRowResistance AS perfRowResistance
+        FROM exercise_entries e
+        INNER JOIN workout_sessions s ON s.id = e.sessionId
+        WHERE e.exerciseId = :blueprintId
+          AND e.perfCapturedAtMillis IS NOT NULL
+          AND s.endTimeMillis IS NOT NULL
+        ORDER BY s.startTimeMillis ASC, e.orderIndex ASC, e.id ASC
+        """,
+    )
+    fun observePerformanceHistoryForBlueprint(blueprintId: Long): Flow<List<ExercisePerformanceHistoryRow>>
 }
+
+data class ExerciseProgressSummaryRow(
+    val exerciseId: Long,
+    @ColumnInfo(name = "pointCount") val pointCount: Int,
+)
+
+data class ExercisePerformanceHistoryRow(
+    @ColumnInfo(name = "sessionStartMillis") val sessionStartMillis: Long,
+    @ColumnInfo(name = "perfCapturedAtMillis") val perfCapturedAtMillis: Long,
+    @ColumnInfo(name = "perfWorkMode") val perfWorkMode: String?,
+    @ColumnInfo(name = "perfSets") val perfSets: Int?,
+    @ColumnInfo(name = "perfRepsPerSet") val perfRepsPerSet: Int?,
+    @ColumnInfo(name = "perfDurationSecondsPerSet") val perfDurationSecondsPerSet: Int?,
+    @ColumnInfo(name = "perfDurationMinutesPerSet") val perfDurationMinutesPerSet: Int?,
+    @ColumnInfo(name = "perfLoadKg") val perfLoadKg: Float?,
+    @ColumnInfo(name = "perfLoadSpec") val perfLoadSpec: String?,
+    @ColumnInfo(name = "perfRowResistance") val perfRowResistance: String?,
+)
 
 @Dao
 interface WorkoutTemplateDao {
@@ -127,6 +179,9 @@ interface ExerciseBlueprintDao {
 
     @Query("SELECT * FROM exercise_blueprints WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): ExerciseBlueprintEntity?
+
+    @Query("SELECT * FROM exercise_blueprints WHERE id = :id LIMIT 1")
+    fun observeById(id: Long): Flow<ExerciseBlueprintEntity?>
 
     @Query("SELECT * FROM exercise_blueprints ORDER BY name COLLATE NOCASE ASC, id ASC")
     fun observeAll(): Flow<List<ExerciseBlueprintEntity>>

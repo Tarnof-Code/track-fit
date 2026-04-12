@@ -38,4 +38,41 @@ data class ExerciseEntryEntity(
     val level: String,
     /** Exercice coché comme réalisé pendant la séance (séance en cours ou terminée). */
     val doneInSession: Boolean = false,
+    /** Renseigné à la fin de la séance si [doneInSession] : copie de la prescription pour l’historique. */
+    val perfCapturedAtMillis: Long? = null,
+    val perfWorkMode: String? = null,
+    val perfSets: Int? = null,
+    val perfRepsPerSet: Int? = null,
+    val perfDurationSecondsPerSet: Int? = null,
+    val perfDurationMinutesPerSet: Int? = null,
+    val perfLoadKg: Float? = null,
+    val perfLoadSpec: String? = null,
+    val perfRowResistance: String? = null,
+)
+
+fun ExerciseEntryEntity.withPerformanceSnapshotFromBlueprint(
+    blueprint: ExerciseBlueprintEntity,
+    capturedAtMillis: Long,
+): ExerciseEntryEntity = copy(
+    perfCapturedAtMillis = capturedAtMillis,
+    perfWorkMode = blueprint.workMode,
+    perfSets = blueprint.sets,
+    perfRepsPerSet = blueprint.repsPerSet,
+    perfDurationSecondsPerSet = blueprint.durationSecondsPerSet,
+    perfDurationMinutesPerSet = blueprint.durationMinutesPerSet,
+    perfLoadKg = blueprint.loadKg,
+    perfLoadSpec = blueprint.loadSpec,
+    perfRowResistance = blueprint.rowResistance,
+)
+
+fun ExerciseEntryEntity.clearPerformanceSnapshot(): ExerciseEntryEntity = copy(
+    perfCapturedAtMillis = null,
+    perfWorkMode = null,
+    perfSets = null,
+    perfRepsPerSet = null,
+    perfDurationSecondsPerSet = null,
+    perfDurationMinutesPerSet = null,
+    perfLoadKg = null,
+    perfLoadSpec = null,
+    perfRowResistance = null,
 )

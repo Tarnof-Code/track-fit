@@ -25,6 +25,8 @@ import androidx.navigation.navArgument
 import com.sport.gymtracker.ui.screens.ExerciseEditorScreen
 import com.sport.gymtracker.ui.screens.ExerciseBlueprintEditorScreen
 import com.sport.gymtracker.ui.screens.ExerciseLibraryScreen
+import com.sport.gymtracker.ui.screens.ExerciseProgressDetailScreen
+import com.sport.gymtracker.ui.screens.ExerciseProgressListScreen
 import com.sport.gymtracker.ui.screens.HomeScreen
 import com.sport.gymtracker.ui.screens.StatisticsScreen
 import com.sport.gymtracker.ui.screens.SessionDetailScreen
@@ -44,6 +46,8 @@ private object Routes {
     const val TEMPLATE_EXERCISE = "template/{templateId}/exercise/{exerciseId}"
     const val EXERCISE_LIBRARY = "exercise_library"
     const val EXERCISE_LIBRARY_BLUEPRINT = "exercise_library/blueprint/{blueprintId}"
+    const val EXERCISE_PROGRESS = "exercise_progress"
+    const val EXERCISE_PROGRESS_DETAIL = "exercise_progress/{blueprintId}"
 }
 
 private val bottomItems = listOf(
@@ -98,7 +102,27 @@ fun GymTrackerNavHost() {
                 )
             }
             composable(Routes.STATISTICS) {
-                StatisticsScreen()
+                StatisticsScreen(
+                    onOpenExerciseProgress = { navController.navigate(Routes.EXERCISE_PROGRESS) },
+                )
+            }
+            composable(Routes.EXERCISE_PROGRESS) {
+                ExerciseProgressListScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenExercise = { id ->
+                        navController.navigate("exercise_progress/$id")
+                    },
+                )
+            }
+            composable(
+                Routes.EXERCISE_PROGRESS_DETAIL,
+                arguments = listOf(navArgument("blueprintId") { type = NavType.LongType }),
+            ) { entry ->
+                val bid = entry.arguments!!.getLong("blueprintId")
+                ExerciseProgressDetailScreen(
+                    blueprintId = bid,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(Routes.SESSIONS) {
                 SessionsScreen(

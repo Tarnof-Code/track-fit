@@ -1,12 +1,16 @@
 package com.sport.gymtracker.data
 
+import androidx.room.withTransaction
 import com.sport.gymtracker.data.local.AppDatabase
 import com.sport.gymtracker.data.local.ExerciseBlueprintEntity
 import com.sport.gymtracker.data.local.ExerciseEntryEntity
+import com.sport.gymtracker.data.local.ExercisePerformanceHistoryRow
 import com.sport.gymtracker.data.local.TemplateExerciseEntity
 import com.sport.gymtracker.data.local.WorkoutSessionEntity
 import com.sport.gymtracker.data.local.WorkoutTemplateEntity
 import com.sport.gymtracker.data.local.toTemplatePlacement
+import com.sport.gymtracker.data.local.clearPerformanceSnapshot
+import com.sport.gymtracker.data.local.withPerformanceSnapshotFromBlueprint
 import com.sport.gymtracker.domain.Difficulty
 import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.SkillLevel
@@ -85,6 +89,27 @@ class GymRepository(private val db: AppDatabase) {
         sessionDao.observeAll().flatMapLatest { sessions ->
             flow { emit(buildStatisticsOverview(sessions)) }
         }.flowOn(Dispatchers.Default)
+
+    fun observeExerciseProgressList(): Flow<List<ExerciseProgressListItem>> =
+        combine(
+            exerciseDao.observeExerciseProgressSummaries(),
+            exerciseBlueprintDao.observeAll(),
+        ) { summaries, blueprints ->
+            val byId = blueprints.associateBy { it.id }
+            summaries.mapNotNull { row ->
+                val def = byId[row.exerciseId] ?: return@mapNotNull null
+                ExerciseProgressListItem(
+                    blueprintId = def.id,
+                    name = def.name,
+                    pointCount = row.pointCount,
+                )
+            }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        }.flowOn(Dispatchers.Default)
+
+    fun observeExerciseBlueprint(blueprintId: Long) = exerciseBlueprintDao.observeById(blueprintId)
+
+    fun observeExercisePerformanceHistory(blueprintId: Long): Flow<List<ExercisePerformanceHistoryRow>> =
+        exerciseDao.observePerformanceHistoryForBlueprint(blueprintId)
 
     private suspend fun buildHomeState(
         sessions: List<WorkoutSessionEntity>,
@@ -276,7 +301,16 @@ class GymRepository(private val db: AppDatabase) {
     suspend fun endSession(sessionId: Long) {
         val session = sessionDao.getById(sessionId) ?: return
         if (session.endTimeMillis != null) return
-        sessionDao.update(session.copy(endTimeMillis = System.currentTimeMillis()))
+        val endMillis = System.currentTimeMillis()
+        db.withTransaction {
+            val entries = exerciseDao.listForSession(sessionId)
+            for (e in entries) {
+                if (!e.doneInSession) continue
+                val bp = exerciseBlueprintDao.getById(e.exerciseId) ?: continue
+                exerciseDao.update(e.withPerformanceSnapshotFromBlueprint(bp, endMillis))
+            }
+            sessionDao.update(session.copy(endTimeMillis = endMillis))
+        }
     }
 
     suspend fun getSession(id: Long): WorkoutSessionEntity? = sessionDao.getById(id)
@@ -289,6 +323,28 @@ class GymRepository(private val db: AppDatabase) {
 
     suspend fun updateExercise(entry: ExerciseEntryEntity) {
         exerciseDao.update(entry)
+    }
+
+    /**
+     * Bascule [ExerciseEntryEntity.doneInSession]. Si la séance est déjà terminée, enregistre ou efface
+     * l’instantané de performance (courbes de progression), en utilisant l’heure de fin de séance.
+     */
+    suspend fun updateExerciseDoneInSession(entryId: Long, done: Boolean) {
+        val entry = exerciseDao.getById(entryId) ?: return
+        val session = sessionDao.getById(entry.sessionId) ?: return
+        val endMillis = session.endTimeMillis
+        if (endMillis == null) {
+            exerciseDao.update(entry.copy(doneInSession = done))
+            return
+        }
+        if (done) {
+            val bp = exerciseBlueprintDao.getById(entry.exerciseId) ?: return
+            exerciseDao.update(
+                entry.copy(doneInSession = true).withPerformanceSnapshotFromBlueprint(bp, endMillis),
+            )
+        } else {
+            exerciseDao.update(entry.copy(doneInSession = false).clearPerformanceSnapshot())
+        }
     }
 
     suspend fun deleteExercise(id: Long) = exerciseDao.deleteById(id)
@@ -388,6 +444,12 @@ class GymRepository(private val db: AppDatabase) {
         return cal.timeInMillis
     }
 }
+
+data class ExerciseProgressListItem(
+    val blueprintId: Long,
+    val name: String,
+    val pointCount: Int,
+)
 
 data class HomeState(
     val sessionsThisWeek: Int,

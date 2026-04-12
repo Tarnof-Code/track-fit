@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +34,7 @@ import kotlin.math.roundToInt
 private enum class AvgPeriod { WEEK, MONTH }
 
 @Composable
-fun StatisticsScreen() {
+fun StatisticsScreen(onOpenExerciseProgress: () -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as android.app.Application
     val vm: StatisticsViewModel = viewModel(factory = StatisticsViewModel.factory(app))
@@ -166,6 +167,22 @@ fun StatisticsScreen() {
                     )
                     MuscleFrequencyBars(items = stats.muscleFrequencies)
                 }
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenExerciseProgress),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Progression par exercice", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Courbes : répétitions, charge, durées…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                )
             }
         }
 

@@ -191,7 +191,7 @@ fun SessionDetailScreen(
                                 .fillMaxWidth()
                                 .padding(
                                     start = 16.dp,
-                                    end = if (sessionActive) 52.dp else 16.dp,
+                                    end = 52.dp,
                                     top = 10.dp,
                                     bottom = 10.dp,
                                 ),
@@ -228,25 +228,23 @@ fun SessionDetailScreen(
                                 )
                             }
                         }
-                        if (sessionActive) {
-                            IconButton(
-                                onClick = { vm.setExerciseDone(line.entry.id, !line.entry.doneInSession) },
-                                modifier = Modifier.align(Alignment.TopEnd),
-                            ) {
-                                Icon(
-                                    imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
-                                    contentDescription = if (done) {
-                                        "Annuler la validation"
-                                    } else {
-                                        "Valider l’exercice"
-                                    },
-                                    tint = if (done) {
-                                        ExerciseCardDoneIconGreen
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                            }
+                        IconButton(
+                            onClick = { vm.setExerciseDone(line.entry.id, !line.entry.doneInSession) },
+                            modifier = Modifier.align(Alignment.TopEnd),
+                        ) {
+                            Icon(
+                                imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
+                                contentDescription = if (done) {
+                                    "Annuler la validation"
+                                } else {
+                                    "Valider l’exercice"
+                                },
+                                tint = if (done) {
+                                    ExerciseCardDoneIconGreen
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
                         }
                     }
                 }
