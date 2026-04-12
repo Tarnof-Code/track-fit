@@ -82,7 +82,6 @@ fun SessionDetailScreen(
     var showSaveAsTemplate by remember { mutableStateOf(false) }
     var confirmSaveAsTemplate by remember { mutableStateOf(false) }
     var templateNameDraft by remember { mutableStateOf("") }
-    var templateDescDraft by remember { mutableStateOf("") }
     var templateNameFieldError by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Long?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -299,7 +298,6 @@ fun SessionDetailScreen(
                         val offerSaveAsTemplate =
                             session?.sourceTemplateId == null && exercises.isNotEmpty()
                         templateNameDraft = ""
-                        templateDescDraft = ""
                         templateNameFieldError = false
                         confirmSaveAsTemplate = false
                         vm.endSession()
@@ -320,7 +318,6 @@ fun SessionDetailScreen(
     if (showSaveAsTemplate) {
         if (confirmSaveAsTemplate) {
             val nameTrimmed = templateNameDraft.trim()
-            val descPreview = templateDescDraft.trim().takeIf { it.isNotEmpty() }
             AlertDialog(
                 onDismissRequest = { confirmSaveAsTemplate = false },
                 title = { Text("Confirmer l’enregistrement") },
@@ -337,13 +334,6 @@ fun SessionDetailScreen(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                         }
-                        if (descPreview != null) {
-                            Text(
-                                descPreview,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 },
                 confirmButton = {
@@ -357,7 +347,7 @@ fun SessionDetailScreen(
                             }
                             vm.saveSessionAsTemplate(
                                 templateNameDraft.trim(),
-                                templateDescDraft.takeIf { it.isNotBlank() },
+                                null,
                             ) {
                                 showSaveAsTemplate = false
                                 confirmSaveAsTemplate = false
@@ -405,12 +395,6 @@ fun SessionDetailScreen(
                                     )
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = templateDescDraft,
-                            onValueChange = { templateDescDraft = it },
-                            label = { Text("Description (optionnel)") },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

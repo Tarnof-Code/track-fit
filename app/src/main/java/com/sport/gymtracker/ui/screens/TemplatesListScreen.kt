@@ -49,7 +49,6 @@ fun TemplatesListScreen(
     val templateRows by vm.templateRows.collectAsState()
     var showNew by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -136,21 +135,14 @@ fun TemplatesListScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text("Description (optionnel)") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        vm.createTemplate(name, description.takeIf { it.isNotBlank() }) { id ->
+                        vm.createTemplate(name, null) { id ->
                             showNew = false
                             name = ""
-                            description = ""
                             onTemplateClick(id)
                         }
                     },
