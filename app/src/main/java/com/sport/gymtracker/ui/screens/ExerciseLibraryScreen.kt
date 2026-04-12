@@ -3,6 +3,7 @@ package com.sport.gymtracker.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,7 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sport.gymtracker.domain.exerciseTypeLabelFr
 import com.sport.gymtracker.domain.prescriptionSummaryShort
+import com.sport.gymtracker.ui.components.CompactSearchField
 import com.sport.gymtracker.ui.viewmodel.ExerciseLibraryViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +57,21 @@ fun ExerciseLibraryScreen(
         factory = ExerciseLibraryViewModel.factory(context.applicationContext as android.app.Application),
     )
     val blueprints by vm.blueprints.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredBlueprints =
+        remember(blueprints, searchQuery) {
+            val q = searchQuery.trim().lowercase(Locale.FRENCH)
+            if (q.isEmpty()) {
+                blueprints
+            } else {
+                blueprints.filter { bp ->
+                    bp.name.lowercase(Locale.FRENCH).contains(q) ||
+                        bp.notes.lowercase(Locale.FRENCH).contains(q) ||
+                        bp.prescriptionSummaryShort().lowercase(Locale.FRENCH).contains(q) ||
+                        bp.equipment.lowercase(Locale.FRENCH).contains(q)
+                }
+            }
+        }
     var deleteId by remember { mutableStateOf<Long?>(null) }
     var noteDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -84,6 +102,7 @@ fun ExerciseLibraryScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -92,14 +111,26 @@ fun ExerciseLibraryScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                 )
-                Text(
-                    "Utilise le bouton + pour créer une fiche ici. Tu peux aussi ajouter un exercice depuis un modèle ou une séance : il sera alors réutilisable dans la bibliothèque.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                CompactSearchField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Rechercher un exercice",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
                 )
             }
-            items(blueprints, key = { it.id }) { bp ->
+            if (filteredBlueprints.isEmpty() && blueprints.isNotEmpty()) {
+                item {
+                    Text(
+                        "Aucun exercice ne correspond à ta recherche.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+            items(filteredBlueprints, key = { it.id }) { bp ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(

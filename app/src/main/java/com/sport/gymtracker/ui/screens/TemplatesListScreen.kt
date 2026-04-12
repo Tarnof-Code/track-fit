@@ -34,7 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sport.gymtracker.ui.components.CompactSearchField
 import com.sport.gymtracker.ui.viewmodel.TemplatesListViewModel
 
 @Composable
@@ -49,6 +51,19 @@ fun TemplatesListScreen(
     val templateRows by vm.templateRows.collectAsState()
     var showNew by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredRows =
+        remember(templateRows, searchQuery) {
+            val q = searchQuery.trim().lowercase(Locale.FRENCH)
+            if (q.isEmpty()) {
+                templateRows
+            } else {
+                templateRows.filter { t ->
+                    t.name.lowercase(Locale.FRENCH).contains(q) ||
+                        t.description?.lowercase(Locale.FRENCH)?.contains(q) == true
+                }
+            }
+        }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -67,12 +82,6 @@ fun TemplatesListScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
-                Text(
-                    "Un modèle = un programme complet : ajoute autant d’exercices que tu veux (bouton +). " +
-                        "À la séance, tout le programme est copié d’un coup.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Button(
                     onClick = onOpenExerciseLibrary,
                     modifier = Modifier
@@ -86,8 +95,26 @@ fun TemplatesListScreen(
                         style = MaterialTheme.typography.titleSmall,
                     )
                 }
+                CompactSearchField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Rechercher un modèle",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
             }
-            items(templateRows, key = { it.id }) { t ->
+            if (filteredRows.isEmpty() && templateRows.isNotEmpty()) {
+                item {
+                    Text(
+                        "Aucun modèle ne correspond à ta recherche.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+            items(filteredRows, key = { it.id }) { t ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

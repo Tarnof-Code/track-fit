@@ -7,16 +7,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -187,6 +192,20 @@ private fun CompactOutlinedSearchField(
                         style = textStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                     )
                 },
+                trailingIcon =
+                    if (value.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { onValueChange("") }) {
+                                Icon(
+                                    Icons.Filled.Clear,
+                                    contentDescription = "Effacer la recherche",
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    },
                 colors = colors,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 container = {
