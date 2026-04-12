@@ -45,7 +45,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -56,13 +55,13 @@ import com.sport.gymtracker.domain.intensitySummary
 import com.sport.gymtracker.domain.prescriptionSummaryShort
 import com.sport.gymtracker.domain.showsRestOnCard
 import com.sport.gymtracker.ui.components.ExerciseCardInfoContent
+import com.sport.gymtracker.ui.theme.exerciseDoneCheckIconTint
+import com.sport.gymtracker.ui.theme.sessionCompletedCardColors
+import com.sport.gymtracker.ui.theme.sessionInProgressCardBackground
 import com.sport.gymtracker.ui.viewmodel.SessionDetailViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private val ExerciseCardDoneGreen = Color(0xFFE8F5E9)
-private val ExerciseCardDoneIconGreen = Color(0xFF2E7D32)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -189,15 +188,20 @@ fun SessionDetailScreen(
                     .joinToString { it.labelFr }
                 val sessionActive = session?.endTimeMillis == null
                 val done = line.entry.doneInSession
+                val completedPair = sessionCompletedCardColors()
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (done) {
-                            ExerciseCardDoneGreen
+                    colors =
+                        if (done) {
+                            CardDefaults.cardColors(
+                                containerColor = completedPair.first,
+                                contentColor = completedPair.second,
+                            )
                         } else {
-                            MaterialTheme.colorScheme.surfaceVariant
+                            CardDefaults.cardColors(
+                                containerColor = sessionInProgressCardBackground(),
+                            )
                         },
-                    ),
                 ) {
                     Box(Modifier.fillMaxWidth()) {
                         Column(
@@ -254,7 +258,7 @@ fun SessionDetailScreen(
                                     "Valider l’exercice"
                                 },
                                 tint = if (done) {
-                                    ExerciseCardDoneIconGreen
+                                    exerciseDoneCheckIconTint()
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },

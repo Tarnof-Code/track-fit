@@ -4,16 +4,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
+import com.sport.gymtracker.R
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -59,17 +67,55 @@ private val bottomItems = listOf(
 
 private val bottomRouteSet = setOf(Routes.HOME, Routes.SESSIONS, Routes.TEMPLATES, Routes.STATISTICS)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GymTrackerNavHost() {
+fun GymTrackerNavHost(
+    darkTheme: Boolean,
+    onToggleDarkTheme: () -> Unit,
+) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val dest = backStack?.destination
     val showBar = dest?.route in bottomRouteSet
 
     Scaffold(
+        topBar = {
+            if (showBar) {
+                TopAppBar(
+                    title = { },
+                    actions = {
+                        IconButton(onClick = onToggleDarkTheme) {
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        if (darkTheme) {
+                                            R.drawable.ic_theme_light
+                                        } else {
+                                            R.drawable.ic_theme_dark
+                                        },
+                                    ),
+                                contentDescription =
+                                    if (darkTheme) {
+                                        "Passer en thème clair"
+                                    } else {
+                                        "Passer en thème sombre"
+                                    },
+                            )
+                        }
+                    },
+                    colors =
+                        TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                )
+            }
+        },
         bottomBar = {
             if (showBar) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
                     bottomItems.forEach { (route, label, icon) ->
                         val selected = dest?.hierarchy?.any { it.route == route } == true
                         NavigationBarItem(
@@ -84,7 +130,12 @@ fun GymTrackerNavHost() {
                                 }
                             },
                             icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label) },
+                            label = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp),
+                                )
+                            },
                         )
                     }
                 }

@@ -33,17 +33,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sport.gymtracker.ui.components.NewSessionDialog
+import com.sport.gymtracker.ui.theme.sessionCompletedCardColors
+import com.sport.gymtracker.ui.theme.sessionInProgressAccent
+import com.sport.gymtracker.ui.theme.sessionInProgressCardBackground
 import com.sport.gymtracker.ui.viewmodel.SessionsViewModel
 import java.util.Calendar
-
-private val SessionCardCompletedGreen = Color(0xFFE8F5E9)
-private val SessionInProgressRed = Color(0xFFFF1744)
 
 /** Ex. « Dim12/04/2026 » (sans espace entre l’abréviation et le jour) */
 private fun formatSessionDayDateLineFr(millis: Long): String {
@@ -125,15 +124,20 @@ fun SessionsScreen(onSessionClick: (Long) -> Unit) {
             ) {
                 items(sessions, key = { it.id }) { s ->
                     val completed = s.endTimeMillis != null
+                    val completedPair = sessionCompletedCardColors()
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (completed) {
-                                SessionCardCompletedGreen
+                        colors =
+                            if (completed) {
+                                CardDefaults.cardColors(
+                                    containerColor = completedPair.first,
+                                    contentColor = completedPair.second,
+                                )
                             } else {
-                                MaterialTheme.colorScheme.surfaceVariant
+                                CardDefaults.cardColors(
+                                    containerColor = sessionInProgressCardBackground(),
+                                )
                             },
-                        ),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -168,14 +172,13 @@ fun SessionsScreen(onSessionClick: (Long) -> Unit) {
                                 if (completed) {
                                     Text(
                                         "Terminée",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
                                     )
                                 } else {
                                     Text(
                                         "En cours",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = SessionInProgressRed,
+                                        color = sessionInProgressAccent(),
                                     )
                                 }
                             }
