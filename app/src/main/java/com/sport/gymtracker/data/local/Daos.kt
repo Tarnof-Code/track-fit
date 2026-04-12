@@ -31,6 +31,12 @@ interface WorkoutSessionDao {
 
     @Query("DELETE FROM workout_sessions WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM workout_sessions ORDER BY startTimeMillis ASC, id ASC")
+    suspend fun listAll(): List<WorkoutSessionEntity>
+
+    @Query("SELECT COUNT(*) FROM workout_sessions")
+    suspend fun countAll(): Int
 }
 
 @Dao
@@ -88,6 +94,9 @@ interface ExerciseEntryDao {
         """,
     )
     fun observePerformanceHistoryForBlueprint(blueprintId: Long): Flow<List<ExercisePerformanceHistoryRow>>
+
+    @Query("SELECT * FROM exercise_entries ORDER BY sessionId ASC, orderIndex ASC, id ASC")
+    suspend fun listAll(): List<ExerciseEntryEntity>
 }
 
 data class ExerciseProgressSummaryRow(
@@ -137,6 +146,12 @@ interface WorkoutTemplateDao {
 
     @Query("SELECT * FROM workout_templates WHERE id = :id")
     suspend fun getById(id: Long): WorkoutTemplateEntity?
+
+    @Query("SELECT * FROM workout_templates ORDER BY id ASC")
+    suspend fun listAll(): List<WorkoutTemplateEntity>
+
+    @Query("SELECT COUNT(*) FROM workout_templates")
+    suspend fun countAll(): Int
 }
 
 @Dao
@@ -164,6 +179,9 @@ interface TemplateExerciseDao {
 
     @Query("SELECT COUNT(*) FROM template_exercises WHERE exerciseId = :exerciseId")
     suspend fun countByExerciseId(exerciseId: Long): Int
+
+    @Query("SELECT * FROM template_exercises ORDER BY templateId ASC, orderIndex ASC, id ASC")
+    suspend fun listAll(): List<TemplateExerciseEntity>
 }
 
 @Dao
@@ -185,4 +203,10 @@ interface ExerciseBlueprintDao {
 
     @Query("SELECT * FROM exercise_blueprints ORDER BY name COLLATE NOCASE ASC, id ASC")
     fun observeAll(): Flow<List<ExerciseBlueprintEntity>>
+
+    @Query("SELECT * FROM exercise_blueprints ORDER BY id ASC")
+    suspend fun listAll(): List<ExerciseBlueprintEntity>
+
+    @Query("SELECT COUNT(*) FROM exercise_blueprints")
+    suspend fun countAll(): Int
 }

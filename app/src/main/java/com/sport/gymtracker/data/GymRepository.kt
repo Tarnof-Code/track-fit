@@ -1,6 +1,21 @@
 package com.sport.gymtracker.data
 
 import androidx.room.withTransaction
+import com.sport.gymtracker.data.backup.DataImportMode
+import com.sport.gymtracker.data.backup.DataImportResult
+import com.sport.gymtracker.data.backup.GYM_DATA_JSON_FORMAT_VERSION
+import com.sport.gymtracker.data.backup.GymDataFile
+import com.sport.gymtracker.data.backup.ImportContentScope
+import com.sport.gymtracker.data.backup.decodeGymDataJson
+import com.sport.gymtracker.data.backup.encodeGymDataJson
+import com.sport.gymtracker.data.backup.sameBlueprintContentAs
+import com.sport.gymtracker.data.backup.toBlueprintJson
+import com.sport.gymtracker.data.backup.toEntity
+import com.sport.gymtracker.data.backup.toExerciseEntryJson
+import com.sport.gymtracker.data.backup.toSessionJson
+import com.sport.gymtracker.data.backup.toTemplateExerciseJson
+import com.sport.gymtracker.data.backup.toTemplateJson
+import com.sport.gymtracker.data.backup.validateGymDataForImport
 import com.sport.gymtracker.data.local.AppDatabase
 import com.sport.gymtracker.data.local.ExerciseBlueprintEntity
 import com.sport.gymtracker.data.local.ExerciseEntryEntity
@@ -20,6 +35,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -441,6 +457,201 @@ class GymRepository(private val db: AppDatabase) {
         cal.set(Calendar.MILLISECOND, 0)
         return cal.timeInMillis
     }
+
+    suspend fun hasAnyStoredData(): Boolean =
+        withContext(Dispatchers.IO) {
+            exerciseBlueprintDao.countAll() > 0 ||
+                sessionDao.countAll() > 0 ||
+                templateDao.countAll() > 0
+        }
+
+    suspend fun exportDataJson(): String =
+        withContext(Dispatchers.IO) {
+            val blueprints = exerciseBlueprintDao.listAll().map { it.toBlueprintJson() }
+            val templates = templateDao.listAll().map { it.toTemplateJson() }
+            val templateExercises = templateExerciseDao.listAll().map { it.toTemplateExerciseJson() }
+            val sessions = sessionDao.listAll().map { it.toSessionJson() }
+            val exerciseEntries = exerciseDao.listAll().map { it.toExerciseEntryJson() }
+            encodeGymDataJson(
+                GymDataFile(
+                    formatVersion = GYM_DATA_JSON_FORMAT_VERSION,
+                    exportedAtMillis = System.currentTimeMillis(),
+                    blueprints = blueprints,
+                    templates = templates,
+                    templateExercises = templateExercises,
+                    sessions = sessions,
+                    exerciseEntries = exerciseEntries,
+                ),
+            )
+        }
+
+    suspend fun importDataJson(
+        json: String,
+        mode: DataImportMode,
+        scope: ImportContentScope = ImportContentScope.ALL,
+    ): Result<DataImportResult> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val data = decodeGymDataJson(json)
+                if (data.formatVersion > GYM_DATA_JSON_FORMAT_VERSION) {
+                    error(
+                        "Fichier trop récent (version ${data.formatVersion}). Mettez à jour l’application.",
+                    )
+                }
+                validateGymDataForImport(data, scope)
+                when (scope) {
+                    ImportContentScope.ALL -> importAllFromFile(data, mode)
+                    ImportContentScope.EXERCISES_ONLY -> importExercisesOnlyFromFile(data, mode)
+                    ImportContentScope.TEMPLATES_AND_EXERCISES -> importTemplatesSliceFromFile(data, mode)
+                }
+            }
+        }
+
+    private suspend fun importAllFromFile(data: GymDataFile, mode: DataImportMode): DataImportResult =
+        db.withTransaction {
+            if (mode == DataImportMode.REPLACE) {
+                db.clearAllTables()
+            }
+            val blueprintMap = LinkedHashMap<Long, Long>()
+            for (b in data.blueprints) {
+                val newId = exerciseBlueprintDao.insert(b.toEntity())
+                blueprintMap[b.id] = newId
+            }
+            val templateMap = LinkedHashMap<Long, Long>()
+            for (t in data.templates) {
+                val newId = templateDao.insert(
+                    WorkoutTemplateEntity(
+                        id = 0L,
+                        name = t.name,
+                        description = t.description,
+                        createdAtMillis = t.createdAtMillis,
+                    ),
+                )
+                templateMap[t.id] = newId
+            }
+            for (te in data.templateExercises) {
+                templateExerciseDao.insert(
+                    TemplateExerciseEntity(
+                        id = 0L,
+                        templateId = templateMap.getValue(te.templateId),
+                        orderIndex = te.orderIndex,
+                        exerciseId = blueprintMap.getValue(te.exerciseId),
+                    ),
+                )
+            }
+            val sessionMap = LinkedHashMap<Long, Long>()
+            for (s in data.sessions) {
+                val newId = sessionDao.insert(
+                    WorkoutSessionEntity(
+                        id = 0L,
+                        startTimeMillis = s.startTimeMillis,
+                        endTimeMillis = s.endTimeMillis,
+                        title = s.title,
+                        sourceTemplateId = s.sourceTemplateId?.let { templateMap.getValue(it) },
+                    ),
+                )
+                sessionMap[s.id] = newId
+            }
+            for (e in data.exerciseEntries) {
+                exerciseDao.insert(
+                    e.toEntity(
+                        sessionId = sessionMap.getValue(e.sessionId),
+                        exerciseId = blueprintMap.getValue(e.exerciseId),
+                    ),
+                )
+            }
+            DataImportResult(
+                blueprints = data.blueprints.size,
+                templates = data.templates.size,
+                templateLines = data.templateExercises.size,
+                sessions = data.sessions.size,
+                sessionExercises = data.exerciseEntries.size,
+                blueprintsReusedExisting = 0,
+            )
+        }
+
+    private suspend fun importExercisesOnlyFromFile(data: GymDataFile, mode: DataImportMode): DataImportResult =
+        db.withTransaction {
+            if (mode == DataImportMode.REPLACE) {
+                db.clearAllTables()
+            }
+            for (b in data.blueprints) {
+                exerciseBlueprintDao.insert(b.toEntity())
+            }
+            DataImportResult(
+                blueprints = data.blueprints.size,
+                templates = 0,
+                templateLines = 0,
+                sessions = 0,
+                sessionExercises = 0,
+                blueprintsReusedExisting = 0,
+            )
+        }
+
+    private suspend fun importTemplatesSliceFromFile(data: GymDataFile, mode: DataImportMode): DataImportResult {
+        val neededBlueprintIds = data.templateExercises.map { it.exerciseId }.toSet()
+        val blueprintsToImport = data.blueprints.filter { it.id in neededBlueprintIds }
+        return db.withTransaction {
+            if (mode == DataImportMode.REPLACE) {
+                db.clearAllTables()
+            }
+            val blueprintPool = exerciseBlueprintDao.listAll().toMutableList()
+            val blueprintMap = LinkedHashMap<Long, Long>()
+            var reusedCount = 0
+            for (b in blueprintsToImport) {
+                val candidate = b.toEntity()
+                val match = blueprintPool.find { it.sameBlueprintContentAs(candidate) }
+                if (match != null) {
+                    blueprintMap[b.id] = match.id
+                    reusedCount++
+                } else {
+                    val newId = exerciseBlueprintDao.insert(candidate)
+                    val inserted = exerciseBlueprintDao.getById(newId)!!
+                    blueprintPool.add(inserted)
+                    blueprintMap[b.id] = newId
+                }
+            }
+            val templateMap = LinkedHashMap<Long, Long>()
+            for (t in data.templates) {
+                val newId = templateDao.insert(
+                    WorkoutTemplateEntity(
+                        id = 0L,
+                        name = t.name,
+                        description = t.description,
+                        createdAtMillis = t.createdAtMillis,
+                    ),
+                )
+                templateMap[t.id] = newId
+            }
+            for (te in data.templateExercises) {
+                templateExerciseDao.insert(
+                    TemplateExerciseEntity(
+                        id = 0L,
+                        templateId = templateMap.getValue(te.templateId),
+                        orderIndex = te.orderIndex,
+                        exerciseId = blueprintMap.getValue(te.exerciseId),
+                    ),
+                )
+            }
+            DataImportResult(
+                blueprints = blueprintsToImport.size,
+                templates = data.templates.size,
+                templateLines = data.templateExercises.size,
+                sessions = 0,
+                sessionExercises = 0,
+                blueprintsReusedExisting = reusedCount,
+            )
+        }
+    }
+
+    suspend fun clearAllLocalData(): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                db.withTransaction {
+                    db.clearAllTables()
+                }
+            }
+        }
 }
 
 data class ExerciseProgressListItem(

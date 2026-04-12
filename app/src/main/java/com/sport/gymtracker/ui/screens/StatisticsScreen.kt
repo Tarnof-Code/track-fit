@@ -50,7 +50,7 @@ fun StatisticsScreen(onOpenExerciseProgress: () -> Unit) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Statistiques", style = MaterialTheme.typography.headlineMedium)
+        Text("Stats", style = MaterialTheme.typography.headlineMedium)
         Text(
             "Semaine lundi–dimanche, moyennes sur tout l’historique et muscles sollicités.",
             style = MaterialTheme.typography.bodyMedium,

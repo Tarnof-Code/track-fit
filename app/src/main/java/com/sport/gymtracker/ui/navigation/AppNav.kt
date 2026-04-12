@@ -6,6 +6,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +36,7 @@ import com.sport.gymtracker.ui.screens.ExerciseBlueprintEditorScreen
 import com.sport.gymtracker.ui.screens.ExerciseLibraryScreen
 import com.sport.gymtracker.ui.screens.ExerciseProgressDetailScreen
 import com.sport.gymtracker.ui.screens.ExerciseProgressListScreen
+import com.sport.gymtracker.ui.screens.BackupScreen
 import com.sport.gymtracker.ui.screens.HomeScreen
 import com.sport.gymtracker.ui.screens.StatisticsScreen
 import com.sport.gymtracker.ui.screens.SessionDetailScreen
@@ -56,16 +58,19 @@ private object Routes {
     const val EXERCISE_LIBRARY_BLUEPRINT = "exercise_library/blueprint/{blueprintId}"
     const val EXERCISE_PROGRESS = "exercise_progress"
     const val EXERCISE_PROGRESS_DETAIL = "exercise_progress/{blueprintId}"
+    const val BACKUP = "backup"
 }
 
 private val bottomItems = listOf(
     Triple(Routes.HOME, "Accueil", Icons.Default.Home),
     Triple(Routes.SESSIONS, "Séances", Icons.AutoMirrored.Filled.List),
     Triple(Routes.TEMPLATES, "Modèles", Icons.Default.Assignment),
-    Triple(Routes.STATISTICS, "Statistiques", Icons.Default.BarChart),
+    Triple(Routes.STATISTICS, "Stats", Icons.Default.BarChart),
+    Triple(Routes.BACKUP, "Données", Icons.Filled.Save),
 )
 
-private val bottomRouteSet = setOf(Routes.HOME, Routes.SESSIONS, Routes.TEMPLATES, Routes.STATISTICS)
+private val bottomRouteSet =
+    setOf(Routes.HOME, Routes.SESSIONS, Routes.TEMPLATES, Routes.STATISTICS, Routes.BACKUP)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -185,6 +190,9 @@ fun GymTrackerNavHost(
                     onTemplateClick = { id -> navController.navigate("template/$id") },
                     onOpenExerciseLibrary = { navController.navigate(Routes.EXERCISE_LIBRARY) },
                 )
+            }
+            composable(Routes.BACKUP) {
+                BackupScreen()
             }
             composable(Routes.EXERCISE_LIBRARY) {
                 ExerciseLibraryScreen(

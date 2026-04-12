@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.sport.gymtracker.data.backup.DataImportMode
+import com.sport.gymtracker.data.backup.DataImportResult
+import com.sport.gymtracker.data.backup.ImportContentScope
 import com.sport.gymtracker.data.ExerciseProgressListItem
 import com.sport.gymtracker.data.GymRepository
 import com.sport.gymtracker.data.HomeState
@@ -29,6 +32,35 @@ import kotlinx.coroutines.launch
 class HomeViewModel(private val repo: GymRepository) : ViewModel() {
     val home: StateFlow<HomeState?> = repo.observeHomeState()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun exportDataJson(onResult: (Result<String>) -> Unit) {
+        viewModelScope.launch {
+            onResult(runCatching { repo.exportDataJson() })
+        }
+    }
+
+    fun importDataJson(
+        json: String,
+        mode: DataImportMode,
+        scope: ImportContentScope = ImportContentScope.ALL,
+        onResult: (Result<DataImportResult>) -> Unit,
+    ) {
+        viewModelScope.launch {
+            onResult(repo.importDataJson(json, mode, scope))
+        }
+    }
+
+    fun clearAllLocalData(onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            onResult(repo.clearAllLocalData())
+        }
+    }
+
+    fun hasAnyStoredData(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            onResult(repo.hasAnyStoredData())
+        }
+    }
 
     companion object {
         fun factory(app: Application) = object : ViewModelProvider.Factory {
