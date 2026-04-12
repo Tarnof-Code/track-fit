@@ -278,7 +278,10 @@ class GymRepository(private val db: AppDatabase) {
         return (y2 - y1) * 12 + (m2 - m1) + 1
     }
 
-    suspend fun startSession(templateId: Long?): Long {
+    suspend fun startSession(templateId: Long?): StartSessionResult {
+        if (sessionDao.countActiveSessions() > 0) {
+            return StartSessionResult.ActiveSessionExists
+        }
         val resolvedTitle = when {
             templateId != null -> {
                 templateDao.getById(templateId)?.name?.trim()?.takeIf { it.isNotEmpty() }
@@ -309,7 +312,7 @@ class GymRepository(private val db: AppDatabase) {
                 )
             }
         }
-        return sid
+        return StartSessionResult.Created(sid)
     }
 
     suspend fun endSession(sessionId: Long) {
@@ -317,6 +320,7 @@ class GymRepository(private val db: AppDatabase) {
         if (session.endTimeMillis != null) return
         val entries = exerciseDao.listForSession(sessionId)
         if (entries.isEmpty()) return
+        if (entries.none { it.doneInSession }) return
         val endMillis = System.currentTimeMillis()
         db.withTransaction {
             for (e in entries) {
@@ -682,6 +686,11 @@ class GymRepository(private val db: AppDatabase) {
                 }
             }
         }
+}
+
+sealed class StartSessionResult {
+    data class Created(val sessionId: Long) : StartSessionResult()
+    data object ActiveSessionExists : StartSessionResult()
 }
 
 data class ExerciseProgressListItem(

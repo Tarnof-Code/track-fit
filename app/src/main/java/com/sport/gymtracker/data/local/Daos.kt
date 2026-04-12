@@ -37,6 +37,10 @@ interface WorkoutSessionDao {
 
     @Query("SELECT COUNT(*) FROM workout_sessions")
     suspend fun countAll(): Int
+
+    /** Séances démarrées mais pas encore terminées ([endTimeMillis] null). */
+    @Query("SELECT COUNT(*) FROM workout_sessions WHERE endTimeMillis IS NULL")
+    suspend fun countActiveSessions(): Int
 }
 
 @Dao

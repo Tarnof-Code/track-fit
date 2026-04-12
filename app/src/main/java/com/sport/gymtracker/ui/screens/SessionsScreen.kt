@@ -23,6 +23,9 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,7 +33,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -98,9 +103,35 @@ fun SessionsScreen(onSessionClick: (Long) -> Unit) {
 
     var rowMenuSessionId by remember { mutableStateOf<Long?>(null) }
     var deleteSessionId by remember { mutableStateOf<Long?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackScope = rememberCoroutineScope()
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    if (sessions.any { it.endTimeMillis == null }) {
+                        snackScope.launch {
+                            snackbarHostState.showSnackbar(
+                                "Une séance est déjà en cours. Terminez-la avant d’en démarrer une nouvelle.",
+                            )
+                        }
+                    } else {
+                        showNew = true
+                    }
+                },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Séance") },
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,14 +244,6 @@ fun SessionsScreen(onSessionClick: (Long) -> Unit) {
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = { showNew = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            icon = { Icon(Icons.Default.Add, contentDescription = null) },
-            text = { Text("Séance") },
-        )
     }
 
     if (showNew) {
@@ -228,10 +251,13 @@ fun SessionsScreen(onSessionClick: (Long) -> Unit) {
             templateRows = templateRows,
             onDismiss = { showNew = false },
             onCreate = { templateId ->
-                vm.startSession(templateId) { id ->
-                    showNew = false
-                    onSessionClick(id)
-                }
+                vm.startSession(
+                    templateId = templateId,
+                    onCreated = { id ->
+                        showNew = false
+                        onSessionClick(id)
+                    },
+                )
             },
         )
     }

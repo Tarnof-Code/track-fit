@@ -9,6 +9,7 @@ import com.sport.gymtracker.data.backup.DataImportResult
 import com.sport.gymtracker.data.backup.ImportContentScope
 import com.sport.gymtracker.data.ExerciseProgressListItem
 import com.sport.gymtracker.data.GymRepository
+import com.sport.gymtracker.data.StartSessionResult
 import com.sport.gymtracker.data.HomeState
 import com.sport.gymtracker.data.StatisticsOverview
 import com.sport.gymtracker.data.local.ExerciseBlueprintEntity
@@ -138,10 +139,16 @@ class SessionsViewModel(private val repo: GymRepository) : ViewModel() {
     val templateRows = repo.observeTemplateListRows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun startSession(templateId: Long?, onCreated: (Long) -> Unit) {
+    fun startSession(
+        templateId: Long?,
+        onCreated: (Long) -> Unit,
+        onBlocked: () -> Unit = {},
+    ) {
         viewModelScope.launch {
-            val id = repo.startSession(templateId)
-            onCreated(id)
+            when (val r = repo.startSession(templateId)) {
+                is StartSessionResult.Created -> onCreated(r.sessionId)
+                StartSessionResult.ActiveSessionExists -> onBlocked()
+            }
         }
     }
 

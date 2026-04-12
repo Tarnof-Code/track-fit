@@ -98,6 +98,7 @@ fun SessionDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
     var blueprintPickerSelection by remember { mutableStateOf<List<Long>>(emptyList()) }
+    val hasValidatedExercise = exercises.any { it.entry.doneInSession }
 
     LaunchedEffect(showBlueprintPicker) {
         if (showBlueprintPicker) {
@@ -187,17 +188,27 @@ fun SessionDetailScreen(
                     if (s.endTimeMillis != null) {
                         Text("Fin : ${fmt.format(Date(s.endTimeMillis!!))}", style = MaterialTheme.typography.bodyMedium)
                     } else {
-                        if (exercises.isEmpty()) {
-                            Text(
-                                "Ajoutez au moins un exercice pour pouvoir terminer la séance.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 12.dp),
-                            )
+                        when {
+                            exercises.isEmpty() -> {
+                                Text(
+                                    "Ajoutez des exercices, puis validez au moins un exercice pour pouvoir terminer la séance.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 12.dp),
+                                )
+                            }
+                            !hasValidatedExercise -> {
+                                Text(
+                                    "Validez au moins un exercice pour pouvoir terminer la séance.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 12.dp),
+                                )
+                            }
                         }
                         Button(
                             onClick = { confirmEnd = true },
-                            enabled = exercises.isNotEmpty(),
+                            enabled = hasValidatedExercise,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 12.dp),
@@ -308,23 +319,20 @@ fun SessionDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (exercises.isEmpty()) {
-                            confirmEnd = false
-                        } else {
-                            val offerSaveAsTemplate =
-                                session?.sourceTemplateId == null && exercises.isNotEmpty()
-                            templateNameDraft = ""
-                            templateDescDraft = ""
-                            templateNameFieldError = false
-                            confirmSaveAsTemplate = false
-                            vm.endSession()
-                            confirmEnd = false
-                            if (offerSaveAsTemplate) {
-                                showSaveAsTemplate = true
-                            }
+                        if (!hasValidatedExercise) return@TextButton
+                        val offerSaveAsTemplate =
+                            session?.sourceTemplateId == null && exercises.isNotEmpty()
+                        templateNameDraft = ""
+                        templateDescDraft = ""
+                        templateNameFieldError = false
+                        confirmSaveAsTemplate = false
+                        vm.endSession()
+                        confirmEnd = false
+                        if (offerSaveAsTemplate) {
+                            showSaveAsTemplate = true
                         }
                     },
-                    enabled = exercises.isNotEmpty(),
+                    enabled = hasValidatedExercise,
                 ) { Text("Terminer") }
             },
             dismissButton = {
