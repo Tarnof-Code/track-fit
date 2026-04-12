@@ -20,6 +20,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -27,7 +29,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,6 +41,7 @@ import com.sport.gymtracker.data.local.toEditorFormState
 import com.sport.gymtracker.domain.DEFAULT_REST_BETWEEN_SETS_SECONDS
 import com.sport.gymtracker.domain.ExerciseWorkMode
 import com.sport.gymtracker.domain.MuscleGroup
+import com.sport.gymtracker.domain.ExerciseEditorParseResult
 import com.sport.gymtracker.domain.parseExerciseEditorSaveParams
 import com.sport.gymtracker.domain.showsRestInEditor
 import com.sport.gymtracker.requireGymRepository
@@ -68,6 +73,8 @@ fun ExerciseEditorScreen(
     var loadSpecStr by remember { mutableStateOf("") }
     var rest by remember { mutableStateOf(DEFAULT_REST_BETWEEN_SETS_SECONDS.toString()) }
     var selectedMuscles by remember { mutableStateOf(setOf<MuscleGroup>()) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackScope = rememberCoroutineScope()
 
     LaunchedEffect(exerciseId) {
         val entryId = exerciseId ?: return@LaunchedEffect
@@ -88,6 +95,7 @@ fun ExerciseEditorScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (exerciseId == null) "Nouvel exercice" else "Modifier") },
@@ -174,20 +182,26 @@ fun ExerciseEditorScreen(
 
             Button(
                 onClick = {
-                    parseExerciseEditorSaveParams(
-                        workMode = workMode,
-                        name = name,
-                        sets = sets,
-                        reps = reps,
-                        durationSec = durationSec,
-                        durationMin = durationMin,
-                        rowResistance = rowResistance,
-                        loadSpecStr = loadSpecStr,
-                        rest = rest,
-                        equipment = equipment,
-                        muscles = selectedMuscles.toList(),
-                        restFallback = DEFAULT_REST_BETWEEN_SETS_SECONDS,
-                    )?.let { vm.save(it, onBack) }
+                    when (
+                        val r = parseExerciseEditorSaveParams(
+                            workMode = workMode,
+                            name = name,
+                            sets = sets,
+                            reps = reps,
+                            durationSec = durationSec,
+                            durationMin = durationMin,
+                            rowResistance = rowResistance,
+                            loadSpecStr = loadSpecStr,
+                            rest = rest,
+                            equipment = equipment,
+                            muscles = selectedMuscles.toList(),
+                            restFallback = DEFAULT_REST_BETWEEN_SETS_SECONDS,
+                        )
+                    ) {
+                        is ExerciseEditorParseResult.Ok -> vm.save(r.params, onBack)
+                        is ExerciseEditorParseResult.Err ->
+                            snackScope.launch { snackbarHostState.showSnackbar(r.message) }
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {

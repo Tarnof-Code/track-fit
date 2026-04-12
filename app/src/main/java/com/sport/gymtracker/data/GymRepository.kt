@@ -38,8 +38,13 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import java.text.Collator
 import java.util.Calendar
+import java.util.Locale
 import java.util.TimeZone
+
+/** Ordre alphabétique sur le nom de fiche (libellé utilisateur), cohérent avec le français. */
+private val FrenchExerciseNameCollator: Collator = Collator.getInstance(Locale.FRENCH)
 
 /** Ligne de modèle résolue avec la définition d’exercice unique. */
 data class TemplateExerciseLine(
@@ -75,6 +80,9 @@ class GymRepository(private val db: AppDatabase) {
             entries.mapNotNull { e ->
                 val def = byId[e.exerciseId] ?: return@mapNotNull null
                 SessionExerciseLine(e, def)
+            }.sortedWith { a, b ->
+                val byName = FrenchExerciseNameCollator.compare(a.exercise.name, b.exercise.name)
+                if (byName != 0) byName else a.entry.id.compareTo(b.entry.id)
             }
         }
 
@@ -91,6 +99,9 @@ class GymRepository(private val db: AppDatabase) {
             placements.mapNotNull { p ->
                 val def = byId[p.exerciseId] ?: return@mapNotNull null
                 TemplateExerciseLine(p, def)
+            }.sortedWith { a, b ->
+                val byName = FrenchExerciseNameCollator.compare(a.exercise.name, b.exercise.name)
+                if (byName != 0) byName else a.placement.id.compareTo(b.placement.id)
             }
         }
 
