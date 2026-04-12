@@ -15,7 +15,7 @@ fun isAppInDarkTheme(): Boolean = MaterialTheme.colorScheme.surface.luminance() 
 @Composable
 fun sessionCompletedCardColors(): Pair<Color, Color> {
     return if (isAppInDarkTheme()) {
-        Color(0xFF1A2E22) to Color(0xFFE0F2E4)
+        Color(0xFF1E3A2E) to Color(0xFFF0FFF4)
     } else {
         Color(0xFFE8F5E9) to Color(0xFF1B5E20)
     }
@@ -25,7 +25,7 @@ fun sessionCompletedCardColors(): Pair<Color, Color> {
 @Composable
 fun sessionInProgressCardBackground(): Color {
     return if (isAppInDarkTheme()) {
-        Color(0xFF3D2528)
+        Color(0xFF4A2E32)
     } else {
         MaterialTheme.colorScheme.surfaceVariant
     }
@@ -35,7 +35,7 @@ fun sessionInProgressCardBackground(): Color {
 @Composable
 fun sessionInProgressAccent(): Color {
     return if (isAppInDarkTheme()) {
-        Color(0xFFFFB4A9)
+        Color(0xFFFFD2CC)
     } else {
         Color(0xFFB71C1C)
     }
