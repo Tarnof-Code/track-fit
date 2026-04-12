@@ -135,10 +135,9 @@ class GymRepository(private val db: AppDatabase) {
         for (s in thisWeek) {
             for (ex in exerciseDao.listForSession(s.id)) {
                 val def = exerciseBlueprintDao.getById(ex.exerciseId) ?: continue
-                def.muscleGroupsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    .forEach { m ->
-                        muscleCounts[m] = (muscleCounts[m] ?: 0) + 1
-                    }
+                MuscleGroup.fromStorageList(def.muscleGroupsCsv).forEach { m ->
+                    muscleCounts[m.name] = (muscleCounts[m.name] ?: 0) + 1
+                }
             }
         }
 
@@ -202,10 +201,9 @@ class GymRepository(private val db: AppDatabase) {
         for (s in completed) {
             for (ex in exerciseDao.listForSession(s.id)) {
                 val def = exerciseBlueprintDao.getById(ex.exerciseId) ?: continue
-                def.muscleGroupsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    .forEach { key ->
-                        muscleCounts[key] = (muscleCounts[key] ?: 0) + 1
-                    }
+                MuscleGroup.fromStorageList(def.muscleGroupsCsv).forEach { m ->
+                    muscleCounts[m.name] = (muscleCounts[m.name] ?: 0) + 1
+                }
             }
         }
         val maxMuscle = muscleCounts.values.maxOrNull() ?: 0
