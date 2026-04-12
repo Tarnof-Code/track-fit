@@ -37,7 +37,3 @@ L’APK de debug est généré sous `app/build/outputs/apk/debug/`.
 
 - `app/src/main/java/com/sport/gymtracker/` — code source (UI, navigation, données, domaine)
 - `app/src/main/res/` — ressources Android (thème, chaînes, drawables)
-
-## Licence
-
-Non précisée pour l’instant ; précisez une licence si vous publiez le dépôt.
