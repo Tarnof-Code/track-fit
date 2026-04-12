@@ -7,6 +7,7 @@ package com.sport.gymtracker.domain
 data class ExerciseEditorSaveParams(
     val workMode: ExerciseWorkMode,
     val name: String,
+    val notes: String,
     val sets: Int,
     val repsPerSet: Int?,
     val durationSecondsPerSet: Int?,
@@ -30,6 +31,7 @@ sealed interface ExerciseEditorParseResult {
 fun parseExerciseEditorSaveParams(
     workMode: ExerciseWorkMode,
     name: String,
+    notes: String,
     sets: String,
     reps: String,
     durationSec: String,
@@ -44,6 +46,7 @@ fun parseExerciseEditorSaveParams(
     if (name.isBlank()) {
         return ExerciseEditorParseResult.Err("Indiquez le nom de l’exercice.")
     }
+    val notesTrimmed = notes.trim()
     val s = when (workMode) {
         ExerciseWorkMode.REPS_LOAD,
         ExerciseWorkMode.TIME_SECONDS,
@@ -63,6 +66,7 @@ fun parseExerciseEditorSaveParams(
                 ExerciseEditorSaveParams(
                     workMode = workMode,
                     name = name,
+                    notes = notesTrimmed,
                     sets = s,
                     repsPerSet = r,
                     durationSecondsPerSet = null,
@@ -82,6 +86,7 @@ fun parseExerciseEditorSaveParams(
                 ExerciseEditorSaveParams(
                     workMode = workMode,
                     name = name,
+                    notes = notesTrimmed,
                     sets = s,
                     repsPerSet = null,
                     durationSecondsPerSet = dSec,
@@ -101,6 +106,7 @@ fun parseExerciseEditorSaveParams(
                 ExerciseEditorSaveParams(
                     workMode = workMode,
                     name = name,
+                    notes = notesTrimmed,
                     sets = s,
                     repsPerSet = null,
                     durationSecondsPerSet = null,
@@ -123,6 +129,7 @@ fun parseExerciseEditorSaveParams(
                 ExerciseEditorSaveParams(
                     workMode = workMode,
                     name = name,
+                    notes = notesTrimmed,
                     sets = s,
                     repsPerSet = null,
                     durationSecondsPerSet = null,

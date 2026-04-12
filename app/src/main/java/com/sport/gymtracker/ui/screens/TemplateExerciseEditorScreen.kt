@@ -67,6 +67,7 @@ fun TemplateExerciseEditorScreen(
     val defaultRest = defaultRestForDifficulty(Difficulty.MODERATE)
 
     var name by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
     var workMode by remember { mutableStateOf(ExerciseWorkMode.REPS_LOAD) }
     var sets by remember { mutableStateOf("3") }
     var reps by remember { mutableStateOf("10") }
@@ -86,6 +87,7 @@ fun TemplateExerciseEditorScreen(
         val ex = app.requireGymRepository().getExerciseBlueprint(placement.exerciseId) ?: return@LaunchedEffect
         val f = ex.toEditorFormState()
         name = f.name
+        notes = f.notes
         workMode = f.workMode
         sets = f.sets
         f.reps?.let { reps = it }
@@ -131,6 +133,19 @@ fun TemplateExerciseEditorScreen(
                 label = { Text("Nom de l’exercice") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    keyboardType = KeyboardType.Text,
+                ),
+            )
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes (optionnel)") },
+                placeholder = { Text("Consignes, variantes…") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 6,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     keyboardType = KeyboardType.Text,
@@ -208,6 +223,7 @@ fun TemplateExerciseEditorScreen(
                         val r = parseExerciseEditorSaveParams(
                             workMode = workMode,
                             name = name,
+                            notes = notes,
                             sets = sets,
                             reps = reps,
                             durationSec = durationSec,

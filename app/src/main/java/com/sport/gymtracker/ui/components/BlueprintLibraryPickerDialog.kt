@@ -62,6 +62,7 @@ fun BlueprintLibraryPickerDialog(
                     else {
                         exerciseBlueprints.filter { bp ->
                             bp.name.lowercase(Locale.FRENCH).contains(qNorm) ||
+                                bp.notes.lowercase(Locale.FRENCH).contains(qNorm) ||
                                 bp.prescriptionSummaryShort().lowercase(Locale.FRENCH).contains(qNorm) ||
                                 bp.equipment.lowercase(Locale.FRENCH).contains(qNorm)
                         }
@@ -111,6 +112,13 @@ fun BlueprintLibraryPickerDialog(
                                         )
                                         Column(Modifier.padding(start = 4.dp)) {
                                             Text(bp.name, style = MaterialTheme.typography.titleSmall)
+                                            if (bp.notes.isNotBlank()) {
+                                                Text(
+                                                    bp.notes,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                             Text(
                                                 bp.prescriptionSummaryShort(),
                                                 style = MaterialTheme.typography.bodySmall,

@@ -88,6 +88,7 @@ class StatisticsViewModel(private val repo: GymRepository) : ViewModel() {
 
 data class ExerciseProgressDetailUi(
     val blueprintName: String,
+    val blueprintNotes: String,
     val workMode: ExerciseWorkMode,
     val history: List<ExercisePerformanceHistoryRow>,
 )
@@ -118,6 +119,7 @@ class ExerciseProgressDetailViewModel(
             if (bp == null) return@combine null
             ExerciseProgressDetailUi(
                 blueprintName = bp.name,
+                blueprintNotes = bp.notes,
                 workMode = ExerciseWorkMode.fromStorage(bp.workMode),
                 history = hist,
             )
@@ -243,6 +245,7 @@ class ExerciseEditorViewModel(
     fun save(
         workMode: ExerciseWorkMode,
         name: String,
+        notes: String,
         sets: Int,
         repsPerSet: Int?,
         durationSecondsPerSet: Int?,
@@ -266,6 +269,7 @@ class ExerciseEditorViewModel(
             val blueprint = exerciseBlueprintFromEditorInput(
                 workMode = workMode,
                 name = name,
+                notes = notes,
                 sets = sets,
                 repsPerSet = repsPerSet,
                 durationSecondsPerSet = durationSecondsPerSet,
@@ -308,6 +312,7 @@ class ExerciseEditorViewModel(
         save(
             workMode = params.workMode,
             name = params.name,
+            notes = params.notes,
             sets = params.sets,
             repsPerSet = params.repsPerSet,
             durationSecondsPerSet = params.durationSecondsPerSet,
@@ -440,6 +445,7 @@ class ExerciseBlueprintEditorViewModel(
     fun save(
         workMode: ExerciseWorkMode,
         name: String,
+        notes: String,
         sets: Int,
         repsPerSet: Int?,
         durationSecondsPerSet: Int?,
@@ -458,6 +464,7 @@ class ExerciseBlueprintEditorViewModel(
                     exerciseBlueprintFromEditorInput(
                         workMode = workMode,
                         name = name,
+                        notes = notes,
                         sets = sets,
                         repsPerSet = repsPerSet,
                         durationSecondsPerSet = durationSecondsPerSet,
@@ -477,6 +484,7 @@ class ExerciseBlueprintEditorViewModel(
                     exerciseBlueprintFromEditorInput(
                         workMode = workMode,
                         name = name,
+                        notes = notes,
                         sets = sets,
                         repsPerSet = repsPerSet,
                         durationSecondsPerSet = durationSecondsPerSet,
@@ -499,6 +507,7 @@ class ExerciseBlueprintEditorViewModel(
         save(
             workMode = params.workMode,
             name = params.name,
+            notes = params.notes,
             sets = params.sets,
             repsPerSet = params.repsPerSet,
             durationSecondsPerSet = params.durationSecondsPerSet,
@@ -530,6 +539,7 @@ class TemplateExerciseEditorViewModel(
     fun save(
         workMode: ExerciseWorkMode,
         name: String,
+        notes: String,
         sets: Int,
         repsPerSet: Int?,
         durationSecondsPerSet: Int?,
@@ -549,6 +559,7 @@ class TemplateExerciseEditorViewModel(
             val blueprint = exerciseBlueprintFromEditorInput(
                 workMode = workMode,
                 name = name,
+                notes = notes,
                 sets = sets,
                 repsPerSet = repsPerSet,
                 durationSecondsPerSet = durationSecondsPerSet,
@@ -583,6 +594,7 @@ class TemplateExerciseEditorViewModel(
         save(
             workMode = params.workMode,
             name = params.name,
+            notes = params.notes,
             sets = params.sets,
             repsPerSet = params.repsPerSet,
             durationSecondsPerSet = params.durationSecondsPerSet,

@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ExerciseCardInfoContent(
     name: String,
+    notes: String = "",
     exerciseTypeLabel: String,
     prescriptionLine: String,
     intensityLine: String?,
@@ -29,6 +30,13 @@ fun ExerciseCardInfoContent(
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(name, style = MaterialTheme.typography.titleMedium)
+        if (notes.isNotBlank()) {
+            Text(
+                notes,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text(
             exerciseTypeLabel,
             style = MaterialTheme.typography.labelMedium,

@@ -10,6 +10,7 @@ import com.sport.gymtracker.domain.toCsv
  */
 data class ExerciseBlueprintEditorFormState(
     val name: String,
+    val notes: String,
     val workMode: ExerciseWorkMode,
     val sets: String,
     /** null = conserver la valeur par défaut de l’écran (ex. reps « 10 »). */
@@ -34,6 +35,7 @@ fun ExerciseBlueprintEntity.toEditorFormState(): ExerciseBlueprintEditorFormStat
         }.orEmpty()
     return ExerciseBlueprintEditorFormState(
         name = name,
+        notes = notes,
         workMode = ExerciseWorkMode.fromStorage(workMode),
         sets = sets.toString(),
         reps = repsPerSet?.toString(),
@@ -53,6 +55,7 @@ fun ExerciseBlueprintEntity.toEditorFormState(): ExerciseBlueprintEditorFormStat
 fun exerciseBlueprintFromEditorInput(
     workMode: ExerciseWorkMode,
     name: String,
+    notes: String,
     sets: Int,
     repsPerSet: Int?,
     durationSecondsPerSet: Int?,
@@ -69,6 +72,7 @@ fun exerciseBlueprintFromEditorInput(
     return ExerciseBlueprintEntity(
         id = blueprintId,
         name = name.trim(),
+        notes = notes.trim(),
         sets = sets.coerceAtLeast(1),
         repsPerSet = when (workMode) {
             ExerciseWorkMode.REPS_LOAD -> repsPerSet

@@ -105,7 +105,8 @@ fun ExerciseProgressDetailScreen(
             )
         },
     ) { padding ->
-        if (ui == null) {
+        val uiState = ui
+        if (uiState == null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -128,6 +129,14 @@ fun ExerciseProgressDetailScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                val bn = uiState.blueprintNotes
+                if (bn.isNotBlank()) {
+                    Text(
+                        text = bn,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 if (available.isEmpty()) {
                     Card(

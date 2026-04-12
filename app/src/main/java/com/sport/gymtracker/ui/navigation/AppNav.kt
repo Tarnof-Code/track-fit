@@ -63,8 +63,8 @@ private object Routes {
 
 private val bottomItems = listOf(
     Triple(Routes.HOME, "Accueil", Icons.Default.Home),
-    Triple(Routes.TEMPLATES, "Modèles", Icons.AutoMirrored.Filled.Assignment),
     Triple(Routes.SESSIONS, "Séances", Icons.AutoMirrored.Filled.List),
+    Triple(Routes.TEMPLATES, "Modèles", Icons.AutoMirrored.Filled.Assignment),
     Triple(Routes.STATISTICS, "Stats", Icons.Default.BarChart),
     Triple(Routes.BACKUP, "Données", Icons.Filled.Save),
 )

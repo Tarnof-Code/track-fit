@@ -8,6 +8,8 @@ import androidx.room.PrimaryKey
 data class ExerciseBlueprintEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    /** Notes personnelles optionnelles (consignes, variantes, etc.). Chaîne vide = aucune. */
+    val notes: String = "",
     val sets: Int,
     val repsPerSet: Int?,
     val durationSecondsPerSet: Int?,

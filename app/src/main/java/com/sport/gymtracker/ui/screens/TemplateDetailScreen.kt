@@ -218,6 +218,7 @@ fun TemplateDetailScreen(
                     ) {
                         ExerciseCardInfoContent(
                             name = def.name,
+                            notes = def.notes,
                             exerciseTypeLabel = def.exerciseTypeLabelFr(),
                             prescriptionLine = def.prescriptionSummaryShort(),
                             intensityLine = def.intensitySummary(),

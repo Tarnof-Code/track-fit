@@ -33,6 +33,7 @@ data class GymDataFile(
 data class BlueprintJson(
     val id: Long,
     val name: String,
+    val notes: String = "",
     val sets: Int,
     val repsPerSet: Int? = null,
     val durationSecondsPerSet: Int? = null,
@@ -97,6 +98,7 @@ fun ExerciseBlueprintEntity.toBlueprintJson(): BlueprintJson =
     BlueprintJson(
         id = id,
         name = name,
+        notes = notes,
         sets = sets,
         repsPerSet = repsPerSet,
         durationSecondsPerSet = durationSecondsPerSet,
@@ -116,6 +118,7 @@ fun BlueprintJson.toEntity(): ExerciseBlueprintEntity =
     ExerciseBlueprintEntity(
         id = 0L,
         name = name,
+        notes = notes,
         sets = sets,
         repsPerSet = repsPerSet,
         durationSecondsPerSet = durationSecondsPerSet,

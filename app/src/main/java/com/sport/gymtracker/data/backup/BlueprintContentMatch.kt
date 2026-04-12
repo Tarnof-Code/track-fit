@@ -7,6 +7,7 @@ import com.sport.gymtracker.data.local.ExerciseBlueprintEntity
  */
 fun ExerciseBlueprintEntity.sameBlueprintContentAs(other: ExerciseBlueprintEntity): Boolean =
     name.trim() == other.name.trim() &&
+        notes.trim() == other.notes.trim() &&
         sets == other.sets &&
         repsPerSet == other.repsPerSet &&
         durationSecondsPerSet == other.durationSecondsPerSet &&

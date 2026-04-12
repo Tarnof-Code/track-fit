@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +55,7 @@ fun ExerciseLibraryScreen(
     )
     val blueprints by vm.blueprints.collectAsState()
     var deleteId by remember { mutableStateOf<Long?>(null) }
+    var noteDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -99,7 +102,30 @@ fun ExerciseLibraryScreen(
             items(blueprints, key = { it.id }) { bp ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(bp.name, style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                bp.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp),
+                            )
+                            if (bp.notes.isNotBlank()) {
+                                IconButton(
+                                    onClick = { noteDialog = bp.name to bp.notes },
+                                ) {
+                                    Icon(
+                                        Icons.Filled.PushPin,
+                                        contentDescription = "Afficher les notes",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
                         Text(
                             bp.exerciseTypeLabelFr(),
                             style = MaterialTheme.typography.labelMedium,
@@ -132,6 +158,22 @@ fun ExerciseLibraryScreen(
                 }
             }
         }
+    }
+
+    noteDialog?.let { (exerciseName, noteText) ->
+        AlertDialog(
+            onDismissRequest = { noteDialog = null },
+            title = { Text(exerciseName) },
+            text = {
+                Text(
+                    noteText,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { noteDialog = null }) { Text("OK") }
+            },
+        )
     }
 
     val del = deleteId
