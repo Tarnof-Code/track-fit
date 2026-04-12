@@ -8,17 +8,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
@@ -27,10 +23,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,14 +55,14 @@ import com.sport.gymtracker.domain.exerciseTypeLabelFr
 import com.sport.gymtracker.domain.intensitySummary
 import com.sport.gymtracker.domain.prescriptionSummaryShort
 import com.sport.gymtracker.domain.showsRestOnCard
+import com.sport.gymtracker.ui.components.AddExerciseDropdownFab
+import com.sport.gymtracker.ui.components.BlueprintLibraryPickerDialog
 import com.sport.gymtracker.ui.components.ExerciseCardInfoContent
 import com.sport.gymtracker.ui.theme.exerciseDoneCheckIconTint
 import com.sport.gymtracker.ui.theme.sessionCompletedCardColors
 import com.sport.gymtracker.ui.theme.sessionInProgressCardBackground
 import com.sport.gymtracker.ui.viewmodel.SessionDetailViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.sport.gymtracker.util.FrenchDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,38 +133,12 @@ fun SessionDetailScreen(
         },
         floatingActionButton = {
             if (session != null) {
-                Box {
-                    ExtendedFloatingActionButton(
-                        onClick = { fabMenuExpanded = true },
-                        icon = {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                            )
-                        },
-                        text = { Text("Exercice") },
-                    )
-                    DropdownMenu(
-                        expanded = fabMenuExpanded,
-                        onDismissRequest = { fabMenuExpanded = false },
-                        modifier = Modifier.align(Alignment.BottomEnd),
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Nouvel exercice") },
-                            onClick = {
-                                fabMenuExpanded = false
-                                onAddNewExercise()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Depuis la bibliothèque") },
-                            onClick = {
-                                fabMenuExpanded = false
-                                showBlueprintPicker = true
-                            },
-                        )
-                    }
-                }
+                AddExerciseDropdownFab(
+                    expanded = fabMenuExpanded,
+                    onExpandedChange = { fabMenuExpanded = it },
+                    onNewExercise = onAddNewExercise,
+                    onFromLibrary = { showBlueprintPicker = true },
+                )
             }
         },
     ) { padding ->
@@ -183,10 +151,15 @@ fun SessionDetailScreen(
         ) {
             item {
                 session?.let { s ->
-                    val fmt = SimpleDateFormat("EEEE dd/MM/yyyy 'à' HH:mm", Locale.FRENCH)
-                    Text("Début : ${fmt.format(Date(s.startTimeMillis))}", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Début : ${FrenchDateTime.formatSessionDetail(s.startTimeMillis)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                     if (s.endTimeMillis != null) {
-                        Text("Fin : ${fmt.format(Date(s.endTimeMillis!!))}", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Fin : ${FrenchDateTime.formatSessionDetail(s.endTimeMillis!!)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     } else {
                         when {
                             exercises.isEmpty() -> {
@@ -502,80 +475,23 @@ fun SessionDetailScreen(
     }
 
     if (showBlueprintPicker) {
-        AlertDialog(
-            onDismissRequest = { showBlueprintPicker = false },
-            title = { Text("Bibliothèque d’exercices") },
-            text = {
-                if (exerciseBlueprints.isEmpty()) {
-                    Text(
-                        "Aucun exercice dans la bibliothèque pour l’instant. Crée-en un avec « Nouvel exercice ».",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            "Coche un ou plusieurs exercices, puis appuie sur « Ajouter ». L’ordre suit tes coches.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Column(
-                            modifier = Modifier
-                                .heightIn(max = 320.dp)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            exerciseBlueprints.forEach { bp ->
-                                val selected = bp.id in blueprintPickerSelection
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                blueprintPickerSelection =
-                                                    if (selected) {
-                                                        blueprintPickerSelection.filter { it != bp.id }
-                                                    } else {
-                                                        blueprintPickerSelection + bp.id
-                                                    }
-                                            }
-                                            .padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Checkbox(
-                                            checked = selected,
-                                            onCheckedChange = null,
-                                        )
-                                        Column(Modifier.padding(start = 4.dp)) {
-                                            Text(bp.name, style = MaterialTheme.typography.titleSmall)
-                                            Text(
-                                                bp.prescriptionSummaryShort(),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+        BlueprintLibraryPickerDialog(
+            exerciseBlueprints = exerciseBlueprints,
+            emptyLibraryMessage =
+                "Aucun exercice dans la bibliothèque pour l’instant. Crée-en un avec « Nouvel exercice ».",
+            selectedIds = blueprintPickerSelection,
+            onToggleBlueprintId = { id ->
+                blueprintPickerSelection =
+                    if (id in blueprintPickerSelection) {
+                        blueprintPickerSelection.filter { it != id }
+                    } else {
+                        blueprintPickerSelection + id
                     }
-                }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        vm.addExercisesFromBlueprints(blueprintPickerSelection)
-                        showBlueprintPicker = false
-                    },
-                    enabled = blueprintPickerSelection.isNotEmpty(),
-                ) {
-                    val n = blueprintPickerSelection.size
-                    Text(if (n > 1) "Ajouter ($n)" else "Ajouter")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showBlueprintPicker = false }) { Text("Fermer") }
+            onDismiss = { showBlueprintPicker = false },
+            onConfirmAdd = {
+                vm.addExercisesFromBlueprints(blueprintPickerSelection)
+                showBlueprintPicker = false
             },
         )
     }

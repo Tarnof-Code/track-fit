@@ -29,17 +29,16 @@ import com.sport.gymtracker.data.local.withPerformanceSnapshotFromBlueprint
 import com.sport.gymtracker.domain.Difficulty
 import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.SkillLevel
+import com.sport.gymtracker.util.FrenchDateTime
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 import java.util.TimeZone
 
 /** Ligne de modèle résolue avec la définition d’exercice unique. */
@@ -54,6 +53,7 @@ data class SessionExerciseLine(
     val exercise: ExerciseBlueprintEntity,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class GymRepository(private val db: AppDatabase) {
 
     private val sessionDao = db.workoutSessionDao()
@@ -180,15 +180,13 @@ class GymRepository(private val db: AppDatabase) {
         val now = System.currentTimeMillis()
         val weekStart = mondayStartOfWeekMillis(now, tz)
         val weekEndExclusive = weekStart + 7L * 24 * 60 * 60 * 1000
-        val rangeFmt = SimpleDateFormat("d MMM yyyy", Locale.FRENCH)
         val weekRangeLabel =
-            "${rangeFmt.format(Date(weekStart))} – ${rangeFmt.format(Date(weekEndExclusive - 1))}"
+            "${FrenchDateTime.formatStatsRangeDay(weekStart)} – ${FrenchDateTime.formatStatsRangeDay(weekEndExclusive - 1)}"
 
         val inCurrentWeek = completed.filter { it.startTimeMillis >= weekStart && it.startTimeMillis < weekEndExclusive }
-        val dayFmt = SimpleDateFormat("EEE d MMM", Locale.FRENCH)
         val weekSessions = inCurrentWeek.map { s ->
             WeekSessionInfo(
-                dayLabel = dayFmt.format(Date(s.startTimeMillis)),
+                dayLabel = FrenchDateTime.formatStatsWeekdayShort(s.startTimeMillis),
                 templateOrTitle = templateLabelForSession(s),
             )
         }
@@ -480,6 +478,14 @@ class GymRepository(private val db: AppDatabase) {
         session.sourceTemplateId?.let { tid ->
             addExerciseFromBlueprintToTemplate(blueprintId, tid)
         }
+    }
+
+    suspend fun addBlueprintsToSessionInOrder(sessionId: Long, blueprintIds: List<Long>) {
+        for (id in blueprintIds) addExerciseFromBlueprintToSession(sessionId, id)
+    }
+
+    suspend fun addBlueprintsToTemplateInOrder(templateId: Long, blueprintIds: List<Long>) {
+        for (id in blueprintIds) addExerciseFromBlueprintToTemplate(id, templateId)
     }
 
     private fun dayBucket(millis: Long): Long {

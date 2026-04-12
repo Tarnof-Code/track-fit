@@ -38,9 +38,7 @@ import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.ui.components.NewSessionDialog
 import com.sport.gymtracker.ui.viewmodel.HomeViewModel
 import com.sport.gymtracker.ui.viewmodel.SessionsViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.sport.gymtracker.util.FrenchDateTime
 
 @Composable
 fun HomeScreen(
@@ -56,8 +54,6 @@ fun HomeScreen(
     var showNewSession by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val snackScope = rememberCoroutineScope()
-    val lastSessionDateFmt = remember { SimpleDateFormat("EEEE d MMMM yyyy", Locale.FRENCH) }
-
     Box(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -94,7 +90,7 @@ fun HomeScreen(
                         val lastMs = h.lastCompletedSessionStartMillis
                         if (lastMs != null) {
                             Text(
-                                lastSessionDateFmt.format(Date(lastMs)),
+                                FrenchDateTime.formatWeekdayFullDate(lastMs),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                             val rest = h.restDaysSinceLastSession

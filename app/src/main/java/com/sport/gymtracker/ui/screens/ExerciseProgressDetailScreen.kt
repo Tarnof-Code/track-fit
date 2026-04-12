@@ -37,9 +37,7 @@ import com.sport.gymtracker.data.local.ExercisePerformanceHistoryRow
 import com.sport.gymtracker.domain.parseSingleLoadKg
 import com.sport.gymtracker.ui.components.ProgressLineChart
 import com.sport.gymtracker.ui.viewmodel.ExerciseProgressDetailViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.sport.gymtracker.util.FrenchDateTime
 
 private enum class ProgressChartMetric(val labelFr: String) {
     REPS("Répétitions / série"),
@@ -86,13 +84,11 @@ fun ExerciseProgressDetailScreen(
         }
     }
 
-    val dateFmt = remember { SimpleDateFormat("d MMM", Locale.FRENCH) }
-
-    val chartPoints = remember(history, selectedMetric, dateFmt) {
+    val chartPoints = remember(history, selectedMetric) {
         val m = selectedMetric ?: return@remember emptyList()
         history.mapNotNull { row ->
             val y = row.metricValue(m) ?: return@mapNotNull null
-            val label = dateFmt.format(Date(row.sessionStartMillis))
+            val label = FrenchDateTime.formatChartDay(row.sessionStartMillis)
             label to y
         }
     }
@@ -178,7 +174,7 @@ fun ExerciseProgressDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             history.filter { !it.perfRowResistance.isNullOrBlank() }.forEach { row ->
-                                val d = dateFmt.format(Date(row.sessionStartMillis))
+                                val d = FrenchDateTime.formatChartDay(row.sessionStartMillis)
                                 Text(
                                     "$d — ${row.perfRowResistance}",
                                     style = MaterialTheme.typography.bodyMedium,

@@ -32,9 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sport.gymtracker.data.backup.DataImportMode
 import com.sport.gymtracker.data.backup.ImportContentScope
 import com.sport.gymtracker.ui.viewmodel.HomeViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.sport.gymtracker.util.FrenchDateTime
 
 @Composable
 fun BackupScreen() {
@@ -49,7 +47,6 @@ fun BackupScreen() {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successDialogText by remember { mutableStateOf<String?>(null) }
-    val backupDateFmt = remember { SimpleDateFormat("yyyy-MM-dd", Locale.FRENCH) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -116,7 +113,8 @@ fun BackupScreen() {
                 ) {
                     OutlinedButton(
                         onClick = {
-                            val name = "TrackFit-backup-${backupDateFmt.format(Date())}.json"
+                            val name =
+                                "TrackFit-backup-${FrenchDateTime.formatBackupDay(System.currentTimeMillis())}.json"
                             exportLauncher.launch(name)
                         },
                         modifier = Modifier.weight(1f),

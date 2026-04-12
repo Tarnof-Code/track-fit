@@ -33,10 +33,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sport.gymtracker.data.local.toEditorFormState
 import com.sport.gymtracker.domain.Difficulty
 import com.sport.gymtracker.domain.ExerciseWorkMode
-import com.sport.gymtracker.domain.showsRestInEditor
 import com.sport.gymtracker.domain.MuscleGroup
+import com.sport.gymtracker.domain.parseExerciseEditorSaveParams
+import com.sport.gymtracker.domain.showsRestInEditor
 import com.sport.gymtracker.requireGymRepository
 import com.sport.gymtracker.ui.components.CatalogEquipmentSelector
 import com.sport.gymtracker.ui.components.ExercisePrescriptionSection
@@ -74,20 +76,18 @@ fun TemplateExerciseEditorScreen(
         val placementId = exerciseId ?: return@LaunchedEffect
         val placement = app.requireGymRepository().getTemplateExercise(placementId) ?: return@LaunchedEffect
         val ex = app.requireGymRepository().getExerciseBlueprint(placement.exerciseId) ?: return@LaunchedEffect
-        name = ex.name
-        workMode = ExerciseWorkMode.fromStorage(ex.workMode)
-        sets = ex.sets.toString()
-        ex.repsPerSet?.let { reps = it.toString() }
-        ex.durationSecondsPerSet?.let { durationSec = it.toString() }
-        ex.durationMinutesPerSet?.let { durationMin = it.toString() }
-        rowResistance = ex.rowResistance.orEmpty().ifBlank { ex.machineLevel?.toString().orEmpty() }
-        equipment = ex.equipment
-        loadSpecStr = ex.loadSpec?.trim()?.takeIf { it.isNotEmpty() }
-            ?: ex.loadKg?.let { v ->
-                if (v == v.toInt().toFloat()) v.toInt().toString() else "%.1f".format(v)
-            }.orEmpty()
-        rest = ex.restBetweenSetsSeconds.toString()
-        selectedMuscles = MuscleGroup.fromStorageList(ex.muscleGroupsCsv).toSet()
+        val f = ex.toEditorFormState()
+        name = f.name
+        workMode = f.workMode
+        sets = f.sets
+        f.reps?.let { reps = it }
+        f.durationSec?.let { durationSec = it }
+        f.durationMin?.let { durationMin = it }
+        rowResistance = f.rowResistance
+        equipment = f.equipment
+        loadSpecStr = f.loadSpecStr
+        rest = f.rest
+        selectedMuscles = f.selectedMuscles
     }
 
     Scaffold(
@@ -191,93 +191,20 @@ fun TemplateExerciseEditorScreen(
 
             Button(
                 onClick = {
-                    if (name.isBlank()) return@Button
-                    val s = when (workMode) {
-                        ExerciseWorkMode.REPS_LOAD,
-                        ExerciseWorkMode.TIME_SECONDS,
-                        -> sets.toIntOrNull()?.coerceAtLeast(1) ?: return@Button
-                        else -> 1
-                    }
-                    val r = reps.toIntOrNull()
-                    val dSec = durationSec.toIntOrNull()
-                    val dMin = durationMin.toIntOrNull()
-                    val rr = rowResistance.trim().takeIf { it.isNotEmpty() }
-                    val loadSpec = loadSpecStr.trim().takeIf { it.isNotEmpty() }
-                    val rs = if (workMode.showsRestInEditor()) {
-                        rest.toIntOrNull() ?: defaultRest
-                    } else {
-                        0
-                    }
-                    when (workMode) {
-                        ExerciseWorkMode.REPS_LOAD -> {
-                            if (r == null) return@Button
-                            vm.save(
-                                workMode = workMode,
-                                name = name,
-                                sets = s,
-                                repsPerSet = r,
-                                durationSecondsPerSet = null,
-                                durationMinutesPerSet = null,
-                                loadSpec = loadSpec,
-                                rowResistance = null,
-                                equipment = equipment,
-                                muscles = selectedMuscles.toList(),
-                                restSeconds = rs,
-                                onDone = onBack,
-                            )
-                        }
-                        ExerciseWorkMode.TIME_SECONDS -> {
-                            if (dSec == null) return@Button
-                            vm.save(
-                                workMode = workMode,
-                                name = name,
-                                sets = s,
-                                repsPerSet = null,
-                                durationSecondsPerSet = dSec,
-                                durationMinutesPerSet = null,
-                                loadSpec = loadSpec,
-                                rowResistance = null,
-                                equipment = equipment,
-                                muscles = selectedMuscles.toList(),
-                                restSeconds = rs,
-                                onDone = onBack,
-                            )
-                        }
-                        ExerciseWorkMode.TIME_MINUTES -> {
-                            if (dMin == null) return@Button
-                            vm.save(
-                                workMode = workMode,
-                                name = name,
-                                sets = s,
-                                repsPerSet = null,
-                                durationSecondsPerSet = null,
-                                durationMinutesPerSet = dMin,
-                                loadSpec = null,
-                                rowResistance = null,
-                                equipment = equipment,
-                                muscles = selectedMuscles.toList(),
-                                restSeconds = rs,
-                                onDone = onBack,
-                            )
-                        }
-                        ExerciseWorkMode.DURATION_AND_LEVEL -> {
-                            if (rr == null || dMin == null) return@Button
-                            vm.save(
-                                workMode = workMode,
-                                name = name,
-                                sets = s,
-                                repsPerSet = null,
-                                durationSecondsPerSet = null,
-                                durationMinutesPerSet = dMin,
-                                loadSpec = null,
-                                rowResistance = rr,
-                                equipment = equipment,
-                                muscles = selectedMuscles.toList(),
-                                restSeconds = rs,
-                                onDone = onBack,
-                            )
-                        }
-                    }
+                    parseExerciseEditorSaveParams(
+                        workMode = workMode,
+                        name = name,
+                        sets = sets,
+                        reps = reps,
+                        durationSec = durationSec,
+                        durationMin = durationMin,
+                        rowResistance = rowResistance,
+                        loadSpecStr = loadSpecStr,
+                        rest = rest,
+                        equipment = equipment,
+                        muscles = selectedMuscles.toList(),
+                        restFallback = defaultRest,
+                    )?.let { vm.save(it, onBack) }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {

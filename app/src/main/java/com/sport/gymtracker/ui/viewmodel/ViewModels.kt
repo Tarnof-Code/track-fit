@@ -12,17 +12,16 @@ import com.sport.gymtracker.data.GymRepository
 import com.sport.gymtracker.data.StartSessionResult
 import com.sport.gymtracker.data.HomeState
 import com.sport.gymtracker.data.StatisticsOverview
-import com.sport.gymtracker.data.local.ExerciseBlueprintEntity
 import com.sport.gymtracker.data.local.ExerciseEntryEntity
 import com.sport.gymtracker.data.local.ExercisePerformanceHistoryRow
 import com.sport.gymtracker.data.local.TemplateExerciseEntity
+import com.sport.gymtracker.data.local.exerciseBlueprintFromEditorInput
 import com.sport.gymtracker.domain.Difficulty
+import com.sport.gymtracker.domain.ExerciseEditorSaveParams
 import com.sport.gymtracker.domain.ExerciseWorkMode
 import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.SkillLevel
-import com.sport.gymtracker.domain.parseSingleLoadKg
 import com.sport.gymtracker.domain.recommendedRestSeconds
-import com.sport.gymtracker.domain.toCsv
 import com.sport.gymtracker.requireGymRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,9 +29,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+private val WhileSubscribed5s = SharingStarted.WhileSubscribed(5_000)
+
 class HomeViewModel(private val repo: GymRepository) : ViewModel() {
     val home: StateFlow<HomeState?> = repo.observeHomeState()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, WhileSubscribed5s, null)
 
     fun exportDataJson(onResult: (Result<String>) -> Unit) {
         viewModelScope.launch {
@@ -74,7 +75,7 @@ class HomeViewModel(private val repo: GymRepository) : ViewModel() {
 
 class StatisticsViewModel(private val repo: GymRepository) : ViewModel() {
     val stats: StateFlow<StatisticsOverview> = repo.observeStatistics()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatisticsOverview.empty())
+        .stateIn(viewModelScope, WhileSubscribed5s, StatisticsOverview.empty())
 
     companion object {
         fun factory(app: Application) = object : ViewModelProvider.Factory {
@@ -94,7 +95,7 @@ data class ExerciseProgressDetailUi(
 class ExerciseProgressListViewModel(private val repo: GymRepository) : ViewModel() {
     val items: StateFlow<List<ExerciseProgressListItem>> =
         repo.observeExerciseProgressList()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     companion object {
         fun factory(app: Application) = object : ViewModelProvider.Factory {
@@ -120,7 +121,7 @@ class ExerciseProgressDetailViewModel(
                 workMode = ExerciseWorkMode.fromStorage(bp.workMode),
                 history = hist,
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.stateIn(viewModelScope, WhileSubscribed5s, null)
 
     class Factory(
         private val app: Application,
@@ -134,10 +135,10 @@ class ExerciseProgressDetailViewModel(
 
 class SessionsViewModel(private val repo: GymRepository) : ViewModel() {
     val sessions = repo.observeSessions()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     val templateRows = repo.observeTemplateListRows()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     fun startSession(
         templateId: Long?,
@@ -170,13 +171,13 @@ class SessionDetailViewModel(
     private val sessionId: Long,
 ) : ViewModel() {
     val session = repo.observeSession(sessionId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, WhileSubscribed5s, null)
 
     val exercises = repo.observeSessionExerciseLines(sessionId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     val exerciseBlueprints = repo.observeExerciseBlueprints()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     fun addExerciseFromBlueprint(blueprintId: Long) {
         viewModelScope.launch {
@@ -188,9 +189,7 @@ class SessionDetailViewModel(
     fun addExercisesFromBlueprints(blueprintIds: List<Long>) {
         if (blueprintIds.isEmpty()) return
         viewModelScope.launch {
-            for (id in blueprintIds) {
-                repo.addExerciseFromBlueprintToSession(sessionId, id)
-            }
+            repo.addBlueprintsToSessionInOrder(sessionId, blueprintIds)
         }
     }
 
@@ -262,48 +261,20 @@ class ExerciseEditorViewModel(
             } else {
                 repo.nextOrderIndex(sessionId)
             }
-            val loadTrimmed = loadSpec?.trim()?.takeIf { it.isNotEmpty() }
             val bpExisting = existing?.let { repo.getExerciseBlueprint(it.exerciseId) }
-            val blueprint = ExerciseBlueprintEntity(
-                id = bpExisting?.id ?: 0L,
-                name = name.trim(),
-                sets = sets.coerceAtLeast(1),
-                repsPerSet = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD -> repsPerSet
-                    else -> null
-                },
-                durationSecondsPerSet = when (workMode) {
-                    ExerciseWorkMode.TIME_SECONDS -> durationSecondsPerSet
-                    else -> null
-                },
-                durationMinutesPerSet = when (workMode) {
-                    ExerciseWorkMode.TIME_MINUTES,
-                    ExerciseWorkMode.DURATION_AND_LEVEL,
-                    -> durationMinutesPerSet
-                    else -> null
-                },
-                loadSpec = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD,
-                    ExerciseWorkMode.TIME_SECONDS,
-                    -> loadTrimmed
-                    else -> null
-                },
-                loadKg = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD,
-                    ExerciseWorkMode.TIME_SECONDS,
-                    -> parseSingleLoadKg(loadTrimmed)
-                    else -> null
-                },
-                machineLevel = null,
-                rowResistance = when (workMode) {
-                    ExerciseWorkMode.DURATION_AND_LEVEL ->
-                        rowResistance?.trim()?.takeIf { it.isNotEmpty() }
-                    else -> null
-                },
-                workMode = workMode.storageKey,
-                equipment = equipment.trim(),
-                muscleGroupsCsv = muscles.toCsv(),
-                restBetweenSetsSeconds = restSeconds.coerceAtLeast(0),
+            val blueprint = exerciseBlueprintFromEditorInput(
+                workMode = workMode,
+                name = name,
+                sets = sets,
+                repsPerSet = repsPerSet,
+                durationSecondsPerSet = durationSecondsPerSet,
+                durationMinutesPerSet = durationMinutesPerSet,
+                loadSpec = loadSpec,
+                rowResistance = rowResistance,
+                equipment = equipment,
+                muscles = muscles,
+                restSeconds = restSeconds,
+                blueprintId = bpExisting?.id ?: 0L,
                 createdAtMillis = bpExisting?.createdAtMillis ?: System.currentTimeMillis(),
             )
             if (exerciseId != null) {
@@ -332,6 +303,23 @@ class ExerciseEditorViewModel(
         }
     }
 
+    fun save(params: ExerciseEditorSaveParams, onDone: () -> Unit) {
+        save(
+            workMode = params.workMode,
+            name = params.name,
+            sets = params.sets,
+            repsPerSet = params.repsPerSet,
+            durationSecondsPerSet = params.durationSecondsPerSet,
+            durationMinutesPerSet = params.durationMinutesPerSet,
+            loadSpec = params.loadSpec,
+            rowResistance = params.rowResistance,
+            equipment = params.equipment,
+            muscles = params.muscles,
+            restSeconds = params.restSeconds,
+            onDone = onDone,
+        )
+    }
+
     companion object {
         fun factory(app: Application, sessionId: Long, exerciseId: Long?) =
             object : ViewModelProvider.Factory {
@@ -347,7 +335,7 @@ fun defaultRestForDifficulty(difficulty: Difficulty): Int =
 
 class TemplatesListViewModel(private val repo: GymRepository) : ViewModel() {
     val templateRows = repo.observeTemplateListRows()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     fun createTemplate(name: String, description: String?, onCreated: (Long) -> Unit) {
         viewModelScope.launch {
@@ -370,13 +358,13 @@ class TemplateDetailViewModel(
     private val templateId: Long,
 ) : ViewModel() {
     val template = repo.observeTemplate(templateId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, WhileSubscribed5s, null)
 
     val exercises = repo.observeTemplateExerciseLines(templateId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     val exerciseBlueprints = repo.observeExerciseBlueprints()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     fun saveMeta(name: String, description: String?) {
         viewModelScope.launch {
@@ -411,9 +399,7 @@ class TemplateDetailViewModel(
     fun addExercisesFromBlueprints(blueprintIds: List<Long>) {
         if (blueprintIds.isEmpty()) return
         viewModelScope.launch {
-            for (id in blueprintIds) {
-                repo.addExerciseFromBlueprintToTemplate(id, templateId)
-            }
+            repo.addBlueprintsToTemplateInOrder(templateId, blueprintIds)
         }
     }
 
@@ -429,7 +415,7 @@ class TemplateDetailViewModel(
 
 class ExerciseLibraryViewModel(private val repo: GymRepository) : ViewModel() {
     val blueprints = repo.observeExerciseBlueprints()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     fun deleteBlueprint(id: Long, onDone: (Boolean) -> Unit) {
         viewModelScope.launch {
@@ -465,60 +451,64 @@ class ExerciseBlueprintEditorViewModel(
         onDone: () -> Unit,
     ) {
         viewModelScope.launch {
-            val loadTrimmed = loadSpec?.trim()?.takeIf { it.isNotEmpty() }
             val now = System.currentTimeMillis()
-            fun buildEntity(id: Long, createdAtMillis: Long) = ExerciseBlueprintEntity(
-                id = id,
-                name = name.trim(),
-                sets = sets.coerceAtLeast(1),
-                repsPerSet = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD -> repsPerSet
-                    else -> null
-                },
-                durationSecondsPerSet = when (workMode) {
-                    ExerciseWorkMode.TIME_SECONDS -> durationSecondsPerSet
-                    else -> null
-                },
-                durationMinutesPerSet = when (workMode) {
-                    ExerciseWorkMode.TIME_MINUTES,
-                    ExerciseWorkMode.DURATION_AND_LEVEL,
-                    -> durationMinutesPerSet
-                    else -> null
-                },
-                loadSpec = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD,
-                    ExerciseWorkMode.TIME_SECONDS,
-                    -> loadTrimmed
-                    else -> null
-                },
-                loadKg = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD,
-                    ExerciseWorkMode.TIME_SECONDS,
-                    -> parseSingleLoadKg(loadTrimmed)
-                    else -> null
-                },
-                machineLevel = null,
-                rowResistance = when (workMode) {
-                    ExerciseWorkMode.DURATION_AND_LEVEL ->
-                        rowResistance?.trim()?.takeIf { it.isNotEmpty() }
-                    else -> null
-                },
-                workMode = workMode.storageKey,
-                equipment = equipment.trim(),
-                muscleGroupsCsv = muscles.toCsv(),
-                restBetweenSetsSeconds = restSeconds.coerceAtLeast(0),
-                createdAtMillis = createdAtMillis,
-            )
             if (blueprintId == 0L) {
-                repo.insertExerciseBlueprint(buildEntity(0L, now))
+                repo.insertExerciseBlueprint(
+                    exerciseBlueprintFromEditorInput(
+                        workMode = workMode,
+                        name = name,
+                        sets = sets,
+                        repsPerSet = repsPerSet,
+                        durationSecondsPerSet = durationSecondsPerSet,
+                        durationMinutesPerSet = durationMinutesPerSet,
+                        loadSpec = loadSpec,
+                        rowResistance = rowResistance,
+                        equipment = equipment,
+                        muscles = muscles,
+                        restSeconds = restSeconds,
+                        blueprintId = 0L,
+                        createdAtMillis = now,
+                    ),
+                )
             } else {
                 val existing = repo.getExerciseBlueprint(blueprintId) ?: return@launch
                 repo.updateExerciseBlueprint(
-                    buildEntity(blueprintId, existing.createdAtMillis),
+                    exerciseBlueprintFromEditorInput(
+                        workMode = workMode,
+                        name = name,
+                        sets = sets,
+                        repsPerSet = repsPerSet,
+                        durationSecondsPerSet = durationSecondsPerSet,
+                        durationMinutesPerSet = durationMinutesPerSet,
+                        loadSpec = loadSpec,
+                        rowResistance = rowResistance,
+                        equipment = equipment,
+                        muscles = muscles,
+                        restSeconds = restSeconds,
+                        blueprintId = existing.id,
+                        createdAtMillis = existing.createdAtMillis,
+                    ),
                 )
             }
             onDone()
         }
+    }
+
+    fun save(params: ExerciseEditorSaveParams, onDone: () -> Unit) {
+        save(
+            workMode = params.workMode,
+            name = params.name,
+            sets = params.sets,
+            repsPerSet = params.repsPerSet,
+            durationSecondsPerSet = params.durationSecondsPerSet,
+            durationMinutesPerSet = params.durationMinutesPerSet,
+            loadSpec = params.loadSpec,
+            rowResistance = params.rowResistance,
+            equipment = params.equipment,
+            muscles = params.muscles,
+            restSeconds = params.restSeconds,
+            onDone = onDone,
+        )
     }
 
     companion object {
@@ -555,47 +545,19 @@ class TemplateExerciseEditorViewModel(
             val order = existingPlacement?.orderIndex
                 ?: repo.nextTemplateExerciseOrder(templateId)
             val bpExisting = existingPlacement?.let { repo.getExerciseBlueprint(it.exerciseId) }
-            val loadTrimmed = loadSpec?.trim()?.takeIf { it.isNotEmpty() }
-            val blueprint = ExerciseBlueprintEntity(
-                id = bpExisting?.id ?: 0L,
-                name = name.trim(),
-                sets = sets.coerceAtLeast(1),
-                repsPerSet = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD -> repsPerSet
-                    else -> null
-                },
-                durationSecondsPerSet = when (workMode) {
-                    ExerciseWorkMode.TIME_SECONDS -> durationSecondsPerSet
-                    else -> null
-                },
-                durationMinutesPerSet = when (workMode) {
-                    ExerciseWorkMode.TIME_MINUTES,
-                    ExerciseWorkMode.DURATION_AND_LEVEL,
-                    -> durationMinutesPerSet
-                    else -> null
-                },
-                loadSpec = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD,
-                    ExerciseWorkMode.TIME_SECONDS,
-                    -> loadTrimmed
-                    else -> null
-                },
-                loadKg = when (workMode) {
-                    ExerciseWorkMode.REPS_LOAD,
-                    ExerciseWorkMode.TIME_SECONDS,
-                    -> parseSingleLoadKg(loadTrimmed)
-                    else -> null
-                },
-                machineLevel = null,
-                rowResistance = when (workMode) {
-                    ExerciseWorkMode.DURATION_AND_LEVEL ->
-                        rowResistance?.trim()?.takeIf { it.isNotEmpty() }
-                    else -> null
-                },
-                workMode = workMode.storageKey,
-                equipment = equipment.trim(),
-                muscleGroupsCsv = muscles.toCsv(),
-                restBetweenSetsSeconds = restSeconds.coerceAtLeast(0),
+            val blueprint = exerciseBlueprintFromEditorInput(
+                workMode = workMode,
+                name = name,
+                sets = sets,
+                repsPerSet = repsPerSet,
+                durationSecondsPerSet = durationSecondsPerSet,
+                durationMinutesPerSet = durationMinutesPerSet,
+                loadSpec = loadSpec,
+                rowResistance = rowResistance,
+                equipment = equipment,
+                muscles = muscles,
+                restSeconds = restSeconds,
+                blueprintId = bpExisting?.id ?: 0L,
                 createdAtMillis = bpExisting?.createdAtMillis ?: System.currentTimeMillis(),
             )
             if (exerciseId != null) {
@@ -614,6 +576,23 @@ class TemplateExerciseEditorViewModel(
             }
             onDone()
         }
+    }
+
+    fun save(params: ExerciseEditorSaveParams, onDone: () -> Unit) {
+        save(
+            workMode = params.workMode,
+            name = params.name,
+            sets = params.sets,
+            repsPerSet = params.repsPerSet,
+            durationSecondsPerSet = params.durationSecondsPerSet,
+            durationMinutesPerSet = params.durationMinutesPerSet,
+            loadSpec = params.loadSpec,
+            rowResistance = params.rowResistance,
+            equipment = params.equipment,
+            muscles = params.muscles,
+            restSeconds = params.restSeconds,
+            onDone = onDone,
+        )
     }
 
     companion object {
