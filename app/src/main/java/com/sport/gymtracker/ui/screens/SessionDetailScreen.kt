@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +97,13 @@ fun SessionDetailScreen(
     var showBlueprintPicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
+    var blueprintPickerSelection by remember { mutableStateOf<List<Long>>(emptyList()) }
+
+    LaunchedEffect(showBlueprintPicker) {
+        if (showBlueprintPicker) {
+            blueprintPickerSelection = emptyList()
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -482,27 +491,49 @@ fun SessionDetailScreen(
                     )
                 } else {
                     Column(
-                        modifier = Modifier
-                            .heightIn(max = 360.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        exerciseBlueprints.forEach { bp ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        vm.addExerciseFromBlueprint(bp.id)
-                                        showBlueprintPicker = false
-                                    },
-                            ) {
-                                Column(Modifier.padding(12.dp)) {
-                                    Text(bp.name, style = MaterialTheme.typography.titleSmall)
-                                    Text(
-                                        bp.prescriptionSummaryShort(),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                        Text(
+                            "Coche un ou plusieurs exercices, puis appuie sur « Ajouter ». L’ordre suit tes coches.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 320.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            exerciseBlueprints.forEach { bp ->
+                                val selected = bp.id in blueprintPickerSelection
+                                Card(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                blueprintPickerSelection =
+                                                    if (selected) {
+                                                        blueprintPickerSelection.filter { it != bp.id }
+                                                    } else {
+                                                        blueprintPickerSelection + bp.id
+                                                    }
+                                            }
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Checkbox(
+                                            checked = selected,
+                                            onCheckedChange = null,
+                                        )
+                                        Column(Modifier.padding(start = 4.dp)) {
+                                            Text(bp.name, style = MaterialTheme.typography.titleSmall)
+                                            Text(
+                                                bp.prescriptionSummaryShort(),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -510,6 +541,18 @@ fun SessionDetailScreen(
                 }
             },
             confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.addExercisesFromBlueprints(blueprintPickerSelection)
+                        showBlueprintPicker = false
+                    },
+                    enabled = blueprintPickerSelection.isNotEmpty(),
+                ) {
+                    val n = blueprintPickerSelection.size
+                    Text(if (n > 1) "Ajouter ($n)" else "Ajouter")
+                }
+            },
+            dismissButton = {
                 TextButton(onClick = { showBlueprintPicker = false }) { Text("Fermer") }
             },
         )

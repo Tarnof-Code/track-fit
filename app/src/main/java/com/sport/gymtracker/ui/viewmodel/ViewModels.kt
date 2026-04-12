@@ -177,6 +177,16 @@ class SessionDetailViewModel(
         }
     }
 
+    /** Ajoute plusieurs exercices dans l’ordre donné (sélection depuis la bibliothèque). */
+    fun addExercisesFromBlueprints(blueprintIds: List<Long>) {
+        if (blueprintIds.isEmpty()) return
+        viewModelScope.launch {
+            for (id in blueprintIds) {
+                repo.addExerciseFromBlueprintToSession(sessionId, id)
+            }
+        }
+    }
+
     fun endSession() {
         viewModelScope.launch { repo.endSession(sessionId) }
     }
@@ -387,6 +397,16 @@ class TemplateDetailViewModel(
     fun addExerciseFromBlueprint(blueprintId: Long) {
         viewModelScope.launch {
             repo.addExerciseFromBlueprintToTemplate(blueprintId, templateId)
+        }
+    }
+
+    /** Ajoute plusieurs exercices dans l’ordre donné (sélection depuis la bibliothèque). */
+    fun addExercisesFromBlueprints(blueprintIds: List<Long>) {
+        if (blueprintIds.isEmpty()) return
+        viewModelScope.launch {
+            for (id in blueprintIds) {
+                repo.addExerciseFromBlueprintToTemplate(id, templateId)
+            }
         }
     }
 
