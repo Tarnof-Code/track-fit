@@ -1,0 +1,92 @@
+# TrackFit (GymTracker) — règles pour l’assistant
+
+## Mémoire projet
+
+- En **début de session** ou pour du contexte architecture / état d’avancement, lire **`AI_MEMORY.md`** à la racine du dépôt (ou le référencer avec `@AI_MEMORY.md`).
+
+## Contexte projet
+
+- Application Android : **Kotlin**, **Jetpack Compose** (Material 3), **Navigation Compose**, **Room** (génération **KSP**).
+- Namespace / `applicationId` : `com.sport.gymtracker`.
+- Affichage utilisateur : **TrackFit** (chaînes dans `res/values/strings.xml`).
+- Cible technique : `minSdk` 26, **JDK 17**.
+
+## Langue
+
+- Réponses à l’utilisateur : **français**.
+- Texte visible dans l’app : passer par les **ressources** (`strings.xml`), pas de chaînes en dur dans le Compose sauf cas de debug temporaire.
+
+## Architecture & emplacement du code
+
+- **`ui/screens/`** : écrans Compose (`*Screen.kt`).
+- **`ui/components/`** : composants réutilisables.
+- **`ui/navigation/`** : graphe de navigation.
+- **`ui/theme/`** : thème, typo, couleurs.
+- **`ui/viewmodel/`** : ViewModels et factories.
+- **`data/`** : repository, accès Room, DTO / requêtes.
+- **`data/local/`** : entités Room, DAOs, base, migrations.
+- **`domain/`** : modèles métier, logique pure sans Android quand c’est possible.
+
+Respecter les paquetages existants ; ne pas introduire une nouvelle structure sans nécessité.
+
+## Conventions Kotlin & Compose
+
+- Préférer les **fonctions `@Composable`** nommées et des paramètres explicites (callbacks `onXxx`).
+- **`Modifier`** en premier paramètre optionnel après lambdas, avec valeur par défaut `Modifier`.
+- Utiliser **`MaterialTheme`** (couleurs, typo) pour rester cohérent avec le thème.
+- État : privilégier **`ViewModel` + `StateFlow` / `collectAsState()`** pour l’écran ; `remember` / `mutableStateOf` pour l’état local UI uniquement.
+- Imports : ordre logique (AndroidX Compose, projet), sans imports inutilisés.
+
+## Données & Room
+
+- Toute évolution de schéma : **version de base incrémentée**, **`Migration`** explicite, pas de destructive fallback en production sans accord.
+- Accès DB via **repository** ou couches prévues ; éviter les DAOs appelés directement depuis les Composables.
+
+## Ressources & UI
+
+- Dimensions répétées : **`dimens`** ou constantes locales cohérentes ; couleurs : **`Color.kt` / thème**.
+- Icônes : **`material-icons-extended`** déjà en dépendance ; préférer la cohérence avec le reste de l’app.
+
+## Git & périmètre des changements
+
+- **Changements minimaux** : ne modifier que ce qui est demandé ; pas de refactor « au passage » ni fichiers hors sujet.
+- Ne pas committer de secrets : `local.properties`, keystores, clés API.
+
+## 5. Messages de Commit
+
+- Les messages de commit Git doivent toujours être **rédigés en anglais**.
+- **Format détaillé multi-lignes obligatoire** :
+  1. Première ligne : `type(scope):` description courte (ex. `feat: add user authentication`, `refactor: restructure components`).
+  2. Ligne vide.
+  3. Liste à puces détaillant chaque changement significatif, avec `- ` en début de ligne.
+  4. Ligne vide.
+  5. Paragraphe final (1–3 phrases) : bénéfices, contexte et impact des changements.
+- Analyser **tous** les fichiers modifiés pour une liste **exhaustive** des changements.
+- **Grouper** les changements par catégorie logique (components, services, helpers, etc.).
+
+Types autorisés :
+
+- `feat` : nouvelle fonctionnalité
+- `fix` : correction de bug
+- `refactor` : modification du code sans changement fonctionnel (nettoyage, performance)
+- `chore` : build, dépendances, configuration
+- `docs` : documentation
+
+Exemple de format attendu :
+
+```
+refactor: restructure components and improve code organization
+
+- Rename Formulaire_ajout_modif_utilisateur to User_form for better naming
+- Extract Liste component from Liste_utilisateurs for reusability
+- Add generic Form component for reusable form handling across the application
+- Refactor User_form to use the new generic Form component
+- Update imports and references across affected components
+
+This refactoring improves code maintainability and component reusability while reducing code duplication in the admin user management section.
+```
+
+## Qualité
+
+- Après modification substantielle : vérifier **compilation** (`assembleDebug`) ou au minimum l’absence d’erreurs évidentes dans les fichiers touchés.
+- Si une règle entre en conflit avec une demande utilisateur précise, **la demande utilisateur prime**.
