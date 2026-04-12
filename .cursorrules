@@ -6,10 +6,10 @@
 
 ## Contexte projet
 
-- Application Android : **Kotlin**, **Jetpack Compose** (Material 3), **Navigation Compose**, **Room** (génération **KSP**).
+- Application Android : **Kotlin**, **Jetpack Compose** (Material 3), **Navigation Compose**, **Room** (génération **KSP**), **kotlinx-serialization** pour le JSON de sauvegarde.
 - Namespace / `applicationId` : `com.sport.gymtracker`.
 - Affichage utilisateur : **TrackFit** (chaînes dans `res/values/strings.xml`).
-- Cible technique : `minSdk` 26, **JDK 17**.
+- Cible technique : `minSdk` 26, `compileSdk` / `targetSdk` 35, **JDK 17**.
 
 ## Langue
 
@@ -24,7 +24,9 @@
 - **`ui/theme/`** : thème, typo, couleurs.
 - **`ui/viewmodel/`** : ViewModels et factories.
 - **`data/`** : repository, accès Room, DTO / requêtes.
+- **`data/backup/`** : format JSON export / import (`GymDataJson`, import, correspondance blueprints).
 - **`data/local/`** : entités Room, DAOs, base, migrations.
+- **`util/`** : helpers sans UI (dates, etc.).
 - **`domain/`** : modèles métier, logique pure sans Android quand c’est possible.
 
 Respecter les paquetages existants ; ne pas introduire une nouvelle structure sans nécessité.
@@ -52,7 +54,7 @@ Respecter les paquetages existants ; ne pas introduire une nouvelle structure sa
 - **Changements minimaux** : ne modifier que ce qui est demandé ; pas de refactor « au passage » ni fichiers hors sujet.
 - Ne pas committer de secrets : `local.properties`, keystores, clés API.
 
-## 5. Messages de Commit
+## Messages de commit
 
 - Les messages de commit Git doivent toujours être **rédigés en anglais**.
 - **Format détaillé multi-lignes obligatoire** :

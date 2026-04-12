@@ -16,11 +16,11 @@ Document de **contexte global** pour l’assistant (et les humains). À **relire
 
 | Élément | Valeur |
 |--------|--------|
-| IDE cible | Android Studio, AGP **8.7.x** |
-| Langage | Kotlin **2.0**, JVM **17** |
+| IDE cible | Android Studio, AGP **8.7.2** |
+| Langage | Kotlin **2.0.21**, JVM **17** |
 | UI | Jetpack **Compose**, **Material 3** |
 | Navigation | Navigation Compose (`AppNav.kt`) |
-| Persistance | **Room** v15, **KSP** |
+| Persistance | **Room** 2.6.1 (schéma DB **16**), **KSP** |
 | Package | `com.sport.gymtracker` |
 | SDK | `minSdk` **26**, `compileSdk` / `targetSdk` **35** |
 
@@ -35,23 +35,25 @@ app/src/main/java/com/sport/gymtracker/
 ├── MainActivity.kt, GymTrackerApp.kt
 ├── ui/
 │   ├── navigation/AppNav.kt      # NavHost, barre du bas, routes
-│   ├── screens/                  # *Screen.kt (accueil, séances, détail, modèles, stats, bibliothèque, éditeurs)
+│   ├── screens/                  # *Screen.kt (accueil, séances, détail, modèles, stats, backup, progression, bibliothèque, éditeurs)
 │   ├── components/               # Cartes, graphes, timer de repos, sélecteurs, etc.
 │   ├── theme/                    # Theme, couleurs, typo
 │   └── viewmodel/                # ViewModels + factories
 ├── data/
 │   ├── GymRepository.kt, StatisticsOverview.kt
+│   ├── backup/ # Export / import JSON (GymDataJson, DataImport, matching blueprints)
 │   └── local/                    # AppDatabase, entités, DAOs, migrations
+├── util/                         # ex. FrenchDateTime.kt
 └── domain/
     ├── Models.kt                 # MuscleGroup, Difficulty, SkillLevel, constantes repos
     ├── prescription / formats chargement
     └── OnAirLaDefenseCatalog.kt  # Catalogue d’équipements (contexte métier)
 ```
 
-**Navigation principale** (barre du bas) : Accueil, Séances, Modèles, Statistiques.  
-**Routes secondaires** (sans barre) : détail séance, édition exercice de séance, détail modèle, édition exercice de modèle, bibliothèque d’exercices, éditeur de blueprint.
+**Navigation principale** (barre du bas) : Accueil, Modèles, Séances, Statistiques, **Données** (sauvegarde / restauration).  
+**Routes secondaires** (sans barre) : détail séance, édition exercice de séance, détail modèle, édition exercice de modèle, bibliothèque d’exercices, éditeur de blueprint, **progression par exercice** (liste + détail par blueprint).
 
-**Données Room** (`AppDatabase`) : `WorkoutSessionEntity`, `ExerciseEntryEntity`, `WorkoutTemplateEntity`, `TemplateExerciseEntity`, `ExerciseBlueprintEntity` — version schéma **15**, chaîne de **MIGRATION_1_2** … **MIGRATION_14_15**.
+**Données Room** (`AppDatabase`) : `WorkoutSessionEntity`, `ExerciseEntryEntity`, `WorkoutTemplateEntity`, `TemplateExerciseEntity`, `ExerciseBlueprintEntity` — version schéma **16**, chaîne de **MIGRATION_1_2** … **MIGRATION_15_16**.
 
 **Note.** Le builder appelle encore `fallbackToDestructiveMigration()` : acceptable en dev, **à revoir avant une release grand public** (perte de données si migration manquante).
 
@@ -65,6 +67,8 @@ app/src/main/java/com/sport/gymtracker/
 - **Modèles** d’entraînement : liste, détail, ajout / édition d’exercices de modèle.
 - **Bibliothèque d’exercices** (blueprints) + écran d’édition blueprint.
 - **Statistiques** (écran dédié + logique `StatisticsOverview` / composants de graphiques).
+- **Sauvegarde & restauration** : écran `BackupScreen` + JSON via `data/backup/` (export / import, alignement des blueprints).
+- **Progression** : parcours liste / détail de progression lié aux blueprints (`ExerciseProgressListScreen`, `ExerciseProgressDetailScreen`).
 - Thème Compose, splash, icônes / assets drawable.
 - Domaine riche : groupes musculaires, prescription, parsing de charges, modes de travail, catalogue équipement.
 
@@ -86,12 +90,12 @@ app/src/main/java/com/sport/gymtracker/
 | **Qualité** | Tests unitaires (domain, repository), tests UI Compose sur flux critiques. |
 | **Prod** | Retirer ou conditionner `fallbackToDestructiveMigration` ; pipeline release (ProGuard/R8 si besoin). |
 | **i18n** | Externaliser toutes les chaînes vers `strings.xml` / ressources si des littéraux restent dans le code. |
-| **Données** | Export / import sauvegarde, ou sync (si un jour besoin) — aujourd’hui tout est local. |
+| **Données** | Améliorer / durcir le flux import-export (validation, conflits, UX) ; sync cloud seulement si besoin futur — cœur toujours local. |
 | **Store** | Fiche Play Console, politique de confidentialité, captures, signing `release`. |
 | **Accessibilité** | Content descriptions, tailles tactiles, contrastes. |
 | **CI** | Build Gradle sur push (GitHub Actions, etc.) si le dépôt devient distant. |
 
-**Dernière mise à jour mémo (à compléter manuellement)** : avril 2026 — création de ce fichier et alignement sur l’état du code au moment de la rédaction.
+**Dernière mise à jour mémo** : 12 avril 2026 — schéma Room **16**, onglet barre du bas **Données** (backup), dossier **`data/backup/`**, écrans **progression exercice**.
 
 ---
 
@@ -100,4 +104,4 @@ app/src/main/java/com/sport/gymtracker/
 1. **Humain** : après une grosse fonctionnalité ou décision d’architecture, mettre à jour les sections **4** et **5** en quelques lignes.
 2. **Assistant** : en ouverture de tâche sur ce repo, prendre ce document comme **carte** ; en cas de doute, vérifier le fichier source cité (ex. `AppNav.kt`, `AppDatabase.kt`).
 
-**Limite.** Cursor ne charge pas automatiquement ce fichier : utiliser `@AI_MEMORY.md` dans le chat, ou une règle `.cursor/rules` avec `alwaysApply: true` qui résume ou pointe vers ce document.
+**Cursor.** Une règle **`.cursor/rules/project-memory.mdc`** avec `alwaysApply: true` rappelle de s’appuyer sur ce fichier ; on peut toujours citer explicitement `@AI_MEMORY.md` dans le chat si besoin.

@@ -1,0 +1,10 @@
+---
+description: Charge le contexte projet TrackFit — pointer vers AI_MEMORY.md
+alwaysApply: true
+---
+
+# Mémoire projet TrackFit (GymTracker)
+
+- **Référence canonique** : le fichier racine **`AI_MEMORY.md`** décrit produit, stack, architecture, navigation Room et pistes « reste à faire ».
+- **En début de session ou tâche non triviale** : lire ou rouvrir **`AI_MEMORY.md`** (ou `@AI_MEMORY.md` dans le chat) avant d’explorer le code au hasard ; en cas de conflit avec ce résumé, **`AI_MEMORY.md` prime**.
+- Les conventions détaillées pour l’assistant restent dans **`.cursorrules`** à la racine.
