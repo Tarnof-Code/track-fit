@@ -2,6 +2,7 @@ package com.sport.gymtracker.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
@@ -9,6 +10,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -20,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.sport.gymtracker.domain.ExerciseDurationTimeUnit
 import com.sport.gymtracker.domain.ExerciseWorkMode
 import com.sport.gymtracker.domain.showsSetsInEditor
 
@@ -31,12 +34,8 @@ private fun ModeDescription(workMode: ExerciseWorkMode) {
     val text = when (workMode) {
         ExerciseWorkMode.REPS_LOAD ->
             "Séries en répétitions ; charge et réglage machine (cran, siège, etc.) optionnels."
-        ExerciseWorkMode.TIME_SECONDS ->
-            "Durée d’effort par série en secondes, nb séries ; charge et réglage optionnels."
-        ExerciseWorkMode.TIME_MINUTES ->
-            "Une durée en minutes, sans niveau ni séries."
-        ExerciseWorkMode.DURATION_AND_LEVEL ->
-            "Une durée en minutes et un niveau ou réglage machine."
+        ExerciseWorkMode.TIME_DURATION ->
+            "Choisis secondes ou minutes. Le nombre de séries et le réglage machine sont optionnels (une série si tu laisses le nombre vide)."
     }
     Text(
         text,
@@ -50,6 +49,8 @@ private fun ModeDescription(workMode: ExerciseWorkMode) {
 fun ExercisePrescriptionSection(
     workMode: ExerciseWorkMode,
     onWorkModeChange: (ExerciseWorkMode) -> Unit,
+    durationTimeUnit: ExerciseDurationTimeUnit,
+    onDurationTimeUnitChange: (ExerciseDurationTimeUnit) -> Unit,
     sets: String,
     onSetsChange: (String) -> Unit,
     reps: String,
@@ -100,11 +101,11 @@ fun ExercisePrescriptionSection(
 
         ModeDescription(workMode)
 
-        if (workMode.showsSetsInEditor()) {
+               if (workMode.showsSetsInEditor()) {
             OutlinedTextField(
                 value = sets,
                 onValueChange = { onSetsChange(it.filter { c -> c.isDigit() }) },
-                label = { Text("Nb séries") },
+                label = { Text("Nombre de séries") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -149,27 +150,41 @@ fun ExercisePrescriptionSection(
                     singleLine = true,
                 )
             }
-            ExerciseWorkMode.TIME_SECONDS -> {
+            ExerciseWorkMode.TIME_DURATION -> {
                 OutlinedTextField(
-                    value = durationSec,
-                    onValueChange = { onDurationSecChange(it.filter { c -> c.isDigit() }) },
-                    label = { Text("Durée par série (secondes)") },
+                    value = if (durationTimeUnit == ExerciseDurationTimeUnit.SECONDS) durationSec else durationMin,
+                    onValueChange = { v ->
+                        val f = v.filter { c -> c.isDigit() }
+                        if (durationTimeUnit == ExerciseDurationTimeUnit.SECONDS) {
+                            onDurationSecChange(f)
+                        } else {
+                            onDurationMinChange(f)
+                        }
+                    },
+                    label = { Text("Durée") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = durationTimeUnit == ExerciseDurationTimeUnit.SECONDS,
+                        onClick = { onDurationTimeUnitChange(ExerciseDurationTimeUnit.SECONDS) },
+                        label = { Text("Secondes") },
+                    )
+                    FilterChip(
+                        selected = durationTimeUnit == ExerciseDurationTimeUnit.MINUTES,
+                        onClick = { onDurationTimeUnitChange(ExerciseDurationTimeUnit.MINUTES) },
+                        label = { Text("Minutes") },
+                    )
+                }
                 OutlinedTextField(
-                    value = loadSpecStr,
-                    onValueChange = onLoadSpecChange,
-                    label = {
-                        Text(
-                            if (chargeOptional) "$chargeLabel (optionnel)"
-                            else chargeLabel,
-                        )
-                    },
-                    placeholder = { Text("Ex. 10 · 12, 14 · 5-8 kg") },
-                    supportingText = { Text(ChargeOuNiveauHint) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    value = sets,
+                    onValueChange = { onSetsChange(it.filter { c -> c.isDigit() }) },
+                    label = { Text("Nombre de séries (optionnel)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
@@ -179,42 +194,29 @@ fun ExercisePrescriptionSection(
                     label = { Text("Niveau ou réglage (optionnel)") },
                     placeholder = { Text("Ex. cran 5 · hauteur siège 3 · position P2") },
                     supportingText = {
-                        Text("Réglage machine, siège, poulie, chariot… Indépendant de la charge.")
+                        Text("Réglage machine, siège, poulie, chariot… Tu peux laisser vide.")
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
-            }
-            ExerciseWorkMode.TIME_MINUTES -> {
-                OutlinedTextField(
-                    value = durationMin,
-                    onValueChange = { onDurationMinChange(it.filter { c -> c.isDigit() }) },
-                    label = { Text("Durée (minutes)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-            }
-            ExerciseWorkMode.DURATION_AND_LEVEL -> {
-                OutlinedTextField(
-                    value = durationMin,
-                    onValueChange = { onDurationMinChange(it.filter { c -> c.isDigit() }) },
-                    label = { Text("Durée (minutes)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = levelOrReglage,
-                    onValueChange = onLevelOrReglageChange,
-                    label = { Text("Niveau ou réglage") },
-                    placeholder = { Text("Ex. 12 · 10, 12, 15 · 150-200 W") },
-                    supportingText = { Text(ChargeOuNiveauHint) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
+                if (durationTimeUnit == ExerciseDurationTimeUnit.SECONDS) {
+                    OutlinedTextField(
+                        value = loadSpecStr,
+                        onValueChange = onLoadSpecChange,
+                        label = {
+                            Text(
+                                if (chargeOptional) "$chargeLabel (optionnel)"
+                                else chargeLabel,
+                            )
+                        },
+                        placeholder = { Text("Ex. 10 · 12, 14 · 5-8 kg") },
+                        supportingText = { Text(ChargeOuNiveauHint) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                }
             }
         }
     }

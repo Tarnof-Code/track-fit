@@ -1,26 +1,41 @@
 package com.sport.gymtracker.domain
 
+/** Unité de la durée saisie pour le mode [ExerciseWorkMode.TIME_DURATION]. */
+enum class ExerciseDurationTimeUnit {
+    SECONDS,
+    MINUTES,
+}
+
 enum class ExerciseWorkMode(val storageKey: String, val labelFr: String) {
     REPS_LOAD("REPS_LOAD", "Reps (+ charge)"),
-    TIME_SECONDS("TIME_SECONDS", "Durée (secondes) / nb séries"),
-    TIME_MINUTES("TIME_MINUTES", "Durée (minutes)"),
-    /** Durée en minutes par série + niveau ou réglage (escalier, rameur, etc.). */
-    DURATION_AND_LEVEL("DURATION_AND_LEVEL", "Durée (minutes) et niveau"),
+    /** Secondes ou minutes ; nb de séries et réglage optionnels (1 série si nb vide). */
+    TIME_DURATION("TIME_DURATION", "Durée"),
     ;
 
     companion object {
         fun fromStorage(key: String?): ExerciseWorkMode = when (key) {
-            /** Anciennes valeurs (migration 6→7). */
-            "STAIR_LEVEL", "ROW_RESISTANCE" -> DURATION_AND_LEVEL
+            /** Anciennes valeurs : tout est affiché comme [TIME_DURATION]. */
+            "STAIR_LEVEL",
+            "ROW_RESISTANCE",
+            "DURATION_AND_LEVEL",
+            "TIME_SECONDS",
+            "TIME_MINUTES",
+            -> TIME_DURATION
             else -> entries.find { it.storageKey == key } ?: REPS_LOAD
         }
     }
 }
 
-/** Affiche le champ « Séries » dans l’éditeur (sinon une seule série est enregistrée en base). */
+/** Affiche le champ « Nombre de séries » au-dessus du bloc [when] (le mode Durée le place après la durée). */
 fun ExerciseWorkMode.showsSetsInEditor(): Boolean =
-    this == ExerciseWorkMode.REPS_LOAD || this == ExerciseWorkMode.TIME_SECONDS
+    when (this) {
+        ExerciseWorkMode.REPS_LOAD -> true
+        ExerciseWorkMode.TIME_DURATION -> false
+    }
 
 /** Affiche le repos entre séries dans l’éditeur. */
 fun ExerciseWorkMode.showsRestInEditor(): Boolean =
-    this == ExerciseWorkMode.REPS_LOAD || this == ExerciseWorkMode.TIME_SECONDS
+    when (this) {
+        ExerciseWorkMode.REPS_LOAD -> true
+        ExerciseWorkMode.TIME_DURATION -> true
+    }

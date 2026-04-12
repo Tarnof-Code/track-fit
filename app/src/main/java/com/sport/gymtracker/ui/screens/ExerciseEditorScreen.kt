@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sport.gymtracker.data.local.toEditorFormState
 import com.sport.gymtracker.domain.DEFAULT_REST_BETWEEN_SETS_SECONDS
+import com.sport.gymtracker.domain.ExerciseDurationTimeUnit
 import com.sport.gymtracker.domain.ExerciseWorkMode
 import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.ExerciseEditorParseResult
@@ -66,7 +67,8 @@ fun ExerciseEditorScreen(
     var name by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var workMode by remember { mutableStateOf(ExerciseWorkMode.REPS_LOAD) }
-    var sets by remember { mutableStateOf("3") }
+    var durationTimeUnit by remember { mutableStateOf(ExerciseDurationTimeUnit.SECONDS) }
+    var sets by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("10") }
     var durationSec by remember { mutableStateOf("") }
     var durationMin by remember { mutableStateOf("") }
@@ -90,6 +92,7 @@ fun ExerciseEditorScreen(
         name = f.name
         notes = f.notes
         workMode = f.workMode
+        durationTimeUnit = f.durationTimeUnit
         sets = f.sets
         f.reps?.let { reps = it }
         f.durationSec?.let { durationSec = it }
@@ -149,7 +152,15 @@ fun ExerciseEditorScreen(
 
             ExercisePrescriptionSection(
                 workMode = workMode,
-                onWorkModeChange = { workMode = it },
+                onWorkModeChange = { new ->
+                    val old = workMode
+                    workMode = new
+                    if (new == ExerciseWorkMode.TIME_DURATION && old != ExerciseWorkMode.TIME_DURATION) {
+                        durationTimeUnit = ExerciseDurationTimeUnit.SECONDS
+                    }
+                },
+                durationTimeUnit = durationTimeUnit,
+                onDurationTimeUnitChange = { durationTimeUnit = it },
                 sets = sets,
                 onSetsChange = { sets = it },
                 reps = reps,
@@ -209,6 +220,7 @@ fun ExerciseEditorScreen(
                     when (
                         val r = parseExerciseEditorSaveParams(
                             workMode = workMode,
+                            durationTimeUnit = durationTimeUnit,
                             name = name,
                             notes = notes,
                             sets = sets,

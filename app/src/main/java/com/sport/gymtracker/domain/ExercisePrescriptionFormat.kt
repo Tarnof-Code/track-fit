@@ -20,14 +20,17 @@ fun ExerciseBlueprintEntity.prescriptionSummaryShort(): String {
                 append("${sets} série(s)")
                 repsPerSet?.let { append(" × $it reps") }
             }
-            ExerciseWorkMode.TIME_SECONDS -> {
-                append("${sets} série(s)")
-                durationSecondsPerSet?.let { append(" × ${it}s") }
+            ExerciseWorkMode.TIME_DURATION -> when {
+                durationSecondsPerSet != null -> {
+                    append("${sets} série(s)")
+                    append(" × ${durationSecondsPerSet}s")
+                }
+                durationMinutesPerSet != null -> {
+                    append("${sets} série(s)")
+                    append(" × ${durationMinutesPerSet} min")
+                }
+                else -> {}
             }
-            ExerciseWorkMode.TIME_MINUTES ->
-                durationMinutesPerSet?.let { append("$it min") }
-            ExerciseWorkMode.DURATION_AND_LEVEL ->
-                durationMinutesPerSet?.let { append("$it min") }
         }
     }
 }
@@ -35,14 +38,20 @@ fun ExerciseBlueprintEntity.prescriptionSummaryShort(): String {
 fun ExerciseBlueprintEntity.intensitySummary(): String? {
     val mode = ExerciseWorkMode.fromStorage(workMode)
     return when (mode) {
-        ExerciseWorkMode.REPS_LOAD, ExerciseWorkMode.TIME_SECONDS -> {
+        ExerciseWorkMode.REPS_LOAD -> {
             val charge = loadSummaryText(loadSpec, loadKg)?.let { "Charge : $it" }
             val reglage = levelOrReglage(rowResistance, machineLevel)?.let { "Réglage : $it" }
             listOfNotNull(charge, reglage).joinToString(" · ").takeIf { it.isNotEmpty() }
         }
-        ExerciseWorkMode.TIME_MINUTES -> null
-        ExerciseWorkMode.DURATION_AND_LEVEL ->
-            levelOrReglage(rowResistance, machineLevel)?.let { "Niveau : $it" }
+        ExerciseWorkMode.TIME_DURATION -> {
+            val charge = if (durationSecondsPerSet != null) {
+                loadSummaryText(loadSpec, loadKg)?.let { "Charge : $it" }
+            } else {
+                null
+            }
+            val reglage = levelOrReglage(rowResistance, machineLevel)?.let { "Réglage : $it" }
+            listOfNotNull(charge, reglage).joinToString(" · ").takeIf { it.isNotEmpty() }
+        }
     }
 }
 
@@ -50,5 +59,10 @@ fun ExerciseBlueprintEntity.exerciseTypeLabelFr(): String =
     ExerciseWorkMode.fromStorage(workMode).labelFr
 
 /** Afficher « Repos entre séries » sur les cartes (reps + charge, durée en secondes / séries). */
-fun ExerciseBlueprintEntity.showsRestOnCard(): Boolean =
-    ExerciseWorkMode.fromStorage(workMode).showsRestInEditor()
+fun ExerciseBlueprintEntity.showsRestOnCard(): Boolean {
+    val mode = ExerciseWorkMode.fromStorage(workMode)
+    return when (mode) {
+        ExerciseWorkMode.REPS_LOAD -> true
+        ExerciseWorkMode.TIME_DURATION -> true
+    }
+}

@@ -30,6 +30,7 @@ sealed interface ExerciseEditorParseResult {
  */
 fun parseExerciseEditorSaveParams(
     workMode: ExerciseWorkMode,
+    durationTimeUnit: ExerciseDurationTimeUnit,
     name: String,
     notes: String,
     sets: String,
@@ -48,11 +49,9 @@ fun parseExerciseEditorSaveParams(
     }
     val notesTrimmed = notes.trim()
     val s = when (workMode) {
-        ExerciseWorkMode.REPS_LOAD,
-        ExerciseWorkMode.TIME_SECONDS,
-        -> sets.toIntOrNull()?.coerceAtLeast(1)
+        ExerciseWorkMode.REPS_LOAD -> sets.toIntOrNull()?.coerceAtLeast(1)
             ?: return ExerciseEditorParseResult.Err("Indiquez un nombre de séries valide (au moins 1).")
-        else -> 1
+        ExerciseWorkMode.TIME_DURATION -> sets.trim().toIntOrNull()?.coerceAtLeast(1) ?: 1
     }
     val loadSpec = loadSpecStr.trim().takeIf { it.isNotEmpty() }
     val rr = rowResistance.trim().takeIf { it.isNotEmpty() }
@@ -79,68 +78,47 @@ fun parseExerciseEditorSaveParams(
                 ),
             )
         }
-        ExerciseWorkMode.TIME_SECONDS -> {
-            val dSec = durationSec.toIntOrNull()
-                ?: return ExerciseEditorParseResult.Err("Indiquez une durée en secondes valide.")
-            ExerciseEditorParseResult.Ok(
-                ExerciseEditorSaveParams(
-                    workMode = workMode,
-                    name = name,
-                    notes = notesTrimmed,
-                    sets = s,
-                    repsPerSet = null,
-                    durationSecondsPerSet = dSec,
-                    durationMinutesPerSet = null,
-                    loadSpec = loadSpec,
-                    rowResistance = rr,
-                    equipment = equipment,
-                    muscles = muscles,
-                    restSeconds = restSec,
-                ),
-            )
-        }
-        ExerciseWorkMode.TIME_MINUTES -> {
-            val dMin = durationMin.toIntOrNull()
-                ?: return ExerciseEditorParseResult.Err("Indiquez une durée en minutes valide.")
-            ExerciseEditorParseResult.Ok(
-                ExerciseEditorSaveParams(
-                    workMode = workMode,
-                    name = name,
-                    notes = notesTrimmed,
-                    sets = s,
-                    repsPerSet = null,
-                    durationSecondsPerSet = null,
-                    durationMinutesPerSet = dMin,
-                    loadSpec = null,
-                    rowResistance = null,
-                    equipment = equipment,
-                    muscles = muscles,
-                    restSeconds = restSec,
-                ),
-            )
-        }
-        ExerciseWorkMode.DURATION_AND_LEVEL -> {
-            val dMin = durationMin.toIntOrNull()
-                ?: return ExerciseEditorParseResult.Err("Indiquez une durée en minutes valide.")
-            if (rr == null) {
-                return ExerciseEditorParseResult.Err("Indiquez un niveau ou un réglage machine.")
+        ExerciseWorkMode.TIME_DURATION -> when (durationTimeUnit) {
+            ExerciseDurationTimeUnit.SECONDS -> {
+                val dSec = durationSec.toIntOrNull()
+                    ?: return ExerciseEditorParseResult.Err("Indiquez une durée en secondes valide.")
+                ExerciseEditorParseResult.Ok(
+                    ExerciseEditorSaveParams(
+                        workMode = workMode,
+                        name = name,
+                        notes = notesTrimmed,
+                        sets = s,
+                        repsPerSet = null,
+                        durationSecondsPerSet = dSec,
+                        durationMinutesPerSet = null,
+                        loadSpec = loadSpec,
+                        rowResistance = rr,
+                        equipment = equipment,
+                        muscles = muscles,
+                        restSeconds = restSec,
+                    ),
+                )
             }
-            ExerciseEditorParseResult.Ok(
-                ExerciseEditorSaveParams(
-                    workMode = workMode,
-                    name = name,
-                    notes = notesTrimmed,
-                    sets = s,
-                    repsPerSet = null,
-                    durationSecondsPerSet = null,
-                    durationMinutesPerSet = dMin,
-                    loadSpec = null,
-                    rowResistance = rr,
-                    equipment = equipment,
-                    muscles = muscles,
-                    restSeconds = restSec,
-                ),
-            )
+            ExerciseDurationTimeUnit.MINUTES -> {
+                val dMin = durationMin.toIntOrNull()
+                    ?: return ExerciseEditorParseResult.Err("Indiquez une durée en minutes valide.")
+                ExerciseEditorParseResult.Ok(
+                    ExerciseEditorSaveParams(
+                        workMode = workMode,
+                        name = name,
+                        notes = notesTrimmed,
+                        sets = s,
+                        repsPerSet = null,
+                        durationSecondsPerSet = null,
+                        durationMinutesPerSet = dMin,
+                        loadSpec = null,
+                        rowResistance = rr,
+                        equipment = equipment,
+                        muscles = muscles,
+                        restSeconds = restSec,
+                    ),
+                )
+            }
         }
     }
 }

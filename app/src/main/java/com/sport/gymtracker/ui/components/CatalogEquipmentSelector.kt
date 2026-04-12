@@ -76,7 +76,7 @@ fun CatalogEquipmentSelector(
             modifier = Modifier
                 .menuAnchor()
                 .fillMaxWidth(),
-            label = { Text("Matériel (ON AIR La Défense)") },
+            label = { Text("Matériel") },
             placeholder = { Text("Tape pour filtrer ou saisir…") },
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically) {

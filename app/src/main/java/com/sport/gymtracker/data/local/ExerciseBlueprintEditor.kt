@@ -1,5 +1,6 @@
 package com.sport.gymtracker.data.local
 
+import com.sport.gymtracker.domain.ExerciseDurationTimeUnit
 import com.sport.gymtracker.domain.ExerciseWorkMode
 import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.parseSingleLoadKg
@@ -12,6 +13,8 @@ data class ExerciseBlueprintEditorFormState(
     val name: String,
     val notes: String,
     val workMode: ExerciseWorkMode,
+    /** Pour [ExerciseWorkMode.TIME_DURATION] : unité du champ durée (ignoré pour les autres modes). */
+    val durationTimeUnit: ExerciseDurationTimeUnit,
     val sets: String,
     /** null = conserver la valeur par défaut de l’écran (ex. reps « 10 »). */
     val reps: String?,
@@ -33,10 +36,20 @@ fun ExerciseBlueprintEntity.toEditorFormState(): ExerciseBlueprintEditorFormStat
         ?: loadKg?.let { v ->
             if (v == v.toInt().toFloat()) v.toInt().toString() else "%.1f".format(v)
         }.orEmpty()
+    val mode = ExerciseWorkMode.fromStorage(workMode)
+    val durationTimeUnit = when (mode) {
+        ExerciseWorkMode.TIME_DURATION -> when {
+            durationSecondsPerSet != null -> ExerciseDurationTimeUnit.SECONDS
+            durationMinutesPerSet != null -> ExerciseDurationTimeUnit.MINUTES
+            else -> ExerciseDurationTimeUnit.SECONDS
+        }
+        else -> ExerciseDurationTimeUnit.SECONDS
+    }
     return ExerciseBlueprintEditorFormState(
         name = name,
         notes = notes,
-        workMode = ExerciseWorkMode.fromStorage(workMode),
+        workMode = mode,
+        durationTimeUnit = durationTimeUnit,
         sets = sets.toString(),
         reps = repsPerSet?.toString(),
         durationSec = durationSecondsPerSet?.toString(),
@@ -79,34 +92,28 @@ fun exerciseBlueprintFromEditorInput(
             else -> null
         },
         durationSecondsPerSet = when (workMode) {
-            ExerciseWorkMode.TIME_SECONDS -> durationSecondsPerSet
+            ExerciseWorkMode.TIME_DURATION -> durationSecondsPerSet
             else -> null
         },
         durationMinutesPerSet = when (workMode) {
-            ExerciseWorkMode.TIME_MINUTES,
-            ExerciseWorkMode.DURATION_AND_LEVEL,
-            -> durationMinutesPerSet
+            ExerciseWorkMode.TIME_DURATION -> durationMinutesPerSet
             else -> null
         },
         loadSpec = when (workMode) {
-            ExerciseWorkMode.REPS_LOAD,
-            ExerciseWorkMode.TIME_SECONDS,
-            -> loadTrimmed
+            ExerciseWorkMode.REPS_LOAD -> loadTrimmed
+            ExerciseWorkMode.TIME_DURATION -> if (durationSecondsPerSet != null) loadTrimmed else null
             else -> null
         },
         loadKg = when (workMode) {
-            ExerciseWorkMode.REPS_LOAD,
-            ExerciseWorkMode.TIME_SECONDS,
-            -> parseSingleLoadKg(loadTrimmed)
+            ExerciseWorkMode.REPS_LOAD -> parseSingleLoadKg(loadTrimmed)
+            ExerciseWorkMode.TIME_DURATION -> if (durationSecondsPerSet != null) parseSingleLoadKg(loadTrimmed) else null
             else -> null
         },
         machineLevel = null,
         rowResistance = when (workMode) {
             ExerciseWorkMode.REPS_LOAD,
-            ExerciseWorkMode.TIME_SECONDS,
-            ExerciseWorkMode.DURATION_AND_LEVEL,
+            ExerciseWorkMode.TIME_DURATION,
             -> rowResistance?.trim()?.takeIf { it.isNotEmpty() }
-            else -> null
         },
         workMode = workMode.storageKey,
         equipment = equipment.trim(),
