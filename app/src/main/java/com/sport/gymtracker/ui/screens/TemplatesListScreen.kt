@@ -3,14 +3,18 @@ package com.sport.gymtracker.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -73,10 +77,19 @@ fun TemplatesListScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextButton(
+                Button(
                     onClick = onOpenExerciseLibrary,
-                    modifier = Modifier.padding(top = 4.dp),
-                ) { Text("Bibliothèque d’exercices réutilisables") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                ) {
+                    Icon(Icons.Filled.MenuBook, contentDescription = null)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Bibliothèque d’exercices réutilisables",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
             }
             items(templateRows, key = { it.id }) { t ->
                 Card(

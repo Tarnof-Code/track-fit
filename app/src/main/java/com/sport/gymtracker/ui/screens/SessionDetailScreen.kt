@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,9 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -162,8 +166,18 @@ fun SessionDetailScreen(
                     if (s.endTimeMillis != null) {
                         Text("Fin : ${fmt.format(Date(s.endTimeMillis!!))}", style = MaterialTheme.typography.bodyMedium)
                     } else {
-                        TextButton(onClick = { confirmEnd = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Terminer la séance")
+                        Button(
+                            onClick = { confirmEnd = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                        ) {
+                            Icon(Icons.Filled.Check, contentDescription = null)
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "Terminer la séance",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                         }
                     }
                 }
