@@ -35,8 +35,11 @@ fun ExerciseBlueprintEntity.prescriptionSummaryShort(): String {
 fun ExerciseBlueprintEntity.intensitySummary(): String? {
     val mode = ExerciseWorkMode.fromStorage(workMode)
     return when (mode) {
-        ExerciseWorkMode.REPS_LOAD, ExerciseWorkMode.TIME_SECONDS ->
-            loadSummaryText(loadSpec, loadKg)?.let { "Charge : $it" }
+        ExerciseWorkMode.REPS_LOAD, ExerciseWorkMode.TIME_SECONDS -> {
+            val charge = loadSummaryText(loadSpec, loadKg)?.let { "Charge : $it" }
+            val reglage = levelOrReglage(rowResistance, machineLevel)?.let { "Réglage : $it" }
+            listOfNotNull(charge, reglage).joinToString(" · ").takeIf { it.isNotEmpty() }
+        }
         ExerciseWorkMode.TIME_MINUTES -> null
         ExerciseWorkMode.DURATION_AND_LEVEL ->
             levelOrReglage(rowResistance, machineLevel)?.let { "Niveau : $it" }

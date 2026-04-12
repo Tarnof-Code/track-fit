@@ -2,8 +2,8 @@ package com.sport.gymtracker.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Save
@@ -63,8 +63,8 @@ private object Routes {
 
 private val bottomItems = listOf(
     Triple(Routes.HOME, "Accueil", Icons.Default.Home),
+    Triple(Routes.TEMPLATES, "Modèles", Icons.AutoMirrored.Filled.Assignment),
     Triple(Routes.SESSIONS, "Séances", Icons.AutoMirrored.Filled.List),
-    Triple(Routes.TEMPLATES, "Modèles", Icons.Default.Assignment),
     Triple(Routes.STATISTICS, "Stats", Icons.Default.BarChart),
     Triple(Routes.BACKUP, "Données", Icons.Filled.Save),
 )

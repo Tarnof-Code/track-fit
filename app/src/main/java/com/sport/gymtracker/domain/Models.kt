@@ -46,6 +46,8 @@ enum class MuscleGroup(val labelFr: String) {
     MOLLETS("Mollets"),
     TRAPEZE("Trapèzes"),
     AVANT_BRAS("Avant-bras"),
+    HAUT_DU_CORPS("Haut du corps"),
+    BAS_DU_CORPS("Bas du corps"),
     FULL_BODY("Full body");
 
     companion object {

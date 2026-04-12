@@ -30,9 +30,9 @@ private const val ChargeOuNiveauHint =
 private fun ModeDescription(workMode: ExerciseWorkMode) {
     val text = when (workMode) {
         ExerciseWorkMode.REPS_LOAD ->
-            "Séries en répétitions ; la charge est optionnelle."
+            "Séries en répétitions ; charge et réglage machine (cran, siège, etc.) optionnels."
         ExerciseWorkMode.TIME_SECONDS ->
-            "Durée d’effort par série en secondes, nb séries, charge optionnelle."
+            "Durée d’effort par série en secondes, nb séries ; charge et réglage optionnels."
         ExerciseWorkMode.TIME_MINUTES ->
             "Une durée en minutes, sans niveau ni séries."
         ExerciseWorkMode.DURATION_AND_LEVEL ->
@@ -136,6 +136,18 @@ fun ExercisePrescriptionSection(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
+                OutlinedTextField(
+                    value = levelOrReglage,
+                    onValueChange = onLevelOrReglageChange,
+                    label = { Text("Niveau ou réglage (optionnel)") },
+                    placeholder = { Text("Ex. cran 5 · hauteur siège 3 · position P2") },
+                    supportingText = {
+                        Text("Réglage machine, siège, poulie, chariot… Indépendant de la charge.")
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
             }
             ExerciseWorkMode.TIME_SECONDS -> {
                 OutlinedTextField(
@@ -157,6 +169,18 @@ fun ExercisePrescriptionSection(
                     },
                     placeholder = { Text("Ex. 10 · 12, 14 · 5-8 kg") },
                     supportingText = { Text(ChargeOuNiveauHint) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = levelOrReglage,
+                    onValueChange = onLevelOrReglageChange,
+                    label = { Text("Niveau ou réglage (optionnel)") },
+                    placeholder = { Text("Ex. cran 5 · hauteur siège 3 · position P2") },
+                    supportingText = {
+                        Text("Réglage machine, siège, poulie, chariot… Indépendant de la charge.")
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,

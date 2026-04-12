@@ -2,6 +2,7 @@ package com.sport.gymtracker.ui.components
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.DropdownMenuItem
@@ -20,11 +21,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.dp
 import com.sport.gymtracker.domain.OnAirLaDefenseCatalog
 
+/** Hauteur max du panneau déroulant (défaut Material ~½ écran ; ici plus grand, contenu défilable). */
+private val DropdownMaxHeight = 560.dp
+
 /**
- * Saisie du matériel avec suggestions **ON AIR La Défense** (filtrage en direct).
+ * Saisie du matériel avec suggestions **ON AIR La Défense** (liste complète si le champ est vide, filtrage sinon).
  * Le texte final est celui enregistré (sélection ou saisie libre).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,22 +42,27 @@ fun CatalogEquipmentSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     val filtered = remember(equipmentValue) {
         val q = equipmentValue.trim()
-        if (q.isEmpty()) OnAirLaDefenseCatalog.items.take(25)
-        else {
+        if (q.isEmpty()) {
+            OnAirLaDefenseCatalog.items
+        } else {
             OnAirLaDefenseCatalog.items.filter {
                 it.label.contains(q, ignoreCase = true) ||
                     it.category.contains(q, ignoreCase = true)
-            }.take(40)
+            }
         }
     }
 
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { open ->
-            if (open) keyboardController?.hide()
+            if (open) {
+                keyboardController?.hide()
+                focusManager.clearFocus(force = true)
+            }
             expanded = open
         },
         modifier = modifier,
@@ -91,6 +102,7 @@ fun CatalogEquipmentSelector(
         ExposedDropdownMenu(
             expanded = expanded && filtered.isNotEmpty(),
             onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = DropdownMaxHeight),
         ) {
             filtered.forEach { item ->
                 DropdownMenuItem(

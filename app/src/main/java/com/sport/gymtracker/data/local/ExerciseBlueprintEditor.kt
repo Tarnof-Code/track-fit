@@ -98,8 +98,10 @@ fun exerciseBlueprintFromEditorInput(
         },
         machineLevel = null,
         rowResistance = when (workMode) {
-            ExerciseWorkMode.DURATION_AND_LEVEL ->
-                rowResistance?.trim()?.takeIf { it.isNotEmpty() }
+            ExerciseWorkMode.REPS_LOAD,
+            ExerciseWorkMode.TIME_SECONDS,
+            ExerciseWorkMode.DURATION_AND_LEVEL,
+            -> rowResistance?.trim()?.takeIf { it.isNotEmpty() }
             else -> null
         },
         workMode = workMode.storageKey,
