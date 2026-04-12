@@ -181,6 +181,13 @@ class SessionDetailViewModel(
         viewModelScope.launch { repo.endSession(sessionId) }
     }
 
+    fun saveSessionAsTemplate(name: String, description: String?, onCreated: (Long) -> Unit) {
+        viewModelScope.launch {
+            val id = repo.saveSessionAsTemplate(sessionId, name, description)
+            onCreated(id)
+        }
+    }
+
     fun deleteExercise(id: Long) {
         viewModelScope.launch {
             repo.deleteExercise(id)

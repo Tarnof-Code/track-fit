@@ -34,7 +34,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,7 +46,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -78,13 +83,21 @@ fun SessionDetailScreen(
     val exercises by vm.exercises.collectAsState()
     val exerciseBlueprints by vm.exerciseBlueprints.collectAsState()
     var confirmEnd by remember { mutableStateOf(false) }
+    var showSaveAsTemplate by remember { mutableStateOf(false) }
+    var confirmSaveAsTemplate by remember { mutableStateOf(false) }
+    var templateNameDraft by remember { mutableStateOf("") }
+    var templateDescDraft by remember { mutableStateOf("") }
+    var templateNameFieldError by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<Long?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
     var confirmDeleteSession by remember { mutableStateOf(false) }
     var fabMenuExpanded by remember { mutableStateOf(false) }
     var showBlueprintPicker by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(session?.title ?: "Séance") },
@@ -277,8 +290,17 @@ fun SessionDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        val offerSaveAsTemplate =
+                            session?.sourceTemplateId == null && exercises.isNotEmpty()
+                        templateNameDraft = ""
+                        templateDescDraft = ""
+                        templateNameFieldError = false
+                        confirmSaveAsTemplate = false
                         vm.endSession()
                         confirmEnd = false
+                        if (offerSaveAsTemplate) {
+                            showSaveAsTemplate = true
+                        }
                     },
                 ) { Text("Terminer") }
             },
@@ -286,6 +308,128 @@ fun SessionDetailScreen(
                 TextButton(onClick = { confirmEnd = false }) { Text("Annuler") }
             },
         )
+    }
+
+    if (showSaveAsTemplate) {
+        if (confirmSaveAsTemplate) {
+            val nameTrimmed = templateNameDraft.trim()
+            val descPreview = templateDescDraft.trim().takeIf { it.isNotEmpty() }
+            AlertDialog(
+                onDismissRequest = { confirmSaveAsTemplate = false },
+                title = { Text("Confirmer l’enregistrement") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Un nouveau modèle sera créé à partir de cette séance.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (nameTrimmed.isNotEmpty()) {
+                            Text(
+                                nameTrimmed,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                        if (descPreview != null) {
+                            Text(
+                                descPreview,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (templateNameDraft.trim().isEmpty()) {
+                                snackbarScope.launch {
+                                    snackbarHostState.showSnackbar("Le modèle doit avoir un titre")
+                                }
+                                return@TextButton
+                            }
+                            vm.saveSessionAsTemplate(
+                                templateNameDraft.trim(),
+                                templateDescDraft.takeIf { it.isNotBlank() },
+                            ) {
+                                showSaveAsTemplate = false
+                                confirmSaveAsTemplate = false
+                                templateNameFieldError = false
+                                snackbarScope.launch {
+                                    snackbarHostState.showSnackbar("Modèle créé")
+                                }
+                            }
+                        },
+                    ) { Text("Confirmer") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmSaveAsTemplate = false }) { Text("Retour") }
+                },
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = {
+                    showSaveAsTemplate = false
+                    confirmSaveAsTemplate = false
+                    templateNameFieldError = false
+                },
+                title = { Text("Enregistrer comme modèle ?") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Tu pourras réutiliser ce programme pour une prochaine séance.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedTextField(
+                            value = templateNameDraft,
+                            onValueChange = {
+                                templateNameDraft = it
+                                templateNameFieldError = false
+                            },
+                            label = { Text("Nom du modèle") },
+                            singleLine = true,
+                            isError = templateNameFieldError,
+                            supportingText = {
+                                if (templateNameFieldError) {
+                                    Text(
+                                        "Le modèle doit avoir un titre",
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        OutlinedTextField(
+                            value = templateDescDraft,
+                            onValueChange = { templateDescDraft = it },
+                            label = { Text("Description (optionnel)") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (templateNameDraft.trim().isEmpty()) {
+                                templateNameFieldError = true
+                            } else {
+                                confirmSaveAsTemplate = true
+                            }
+                        },
+                    ) { Text("Enregistrer") }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showSaveAsTemplate = false
+                            confirmSaveAsTemplate = false
+                            templateNameFieldError = false
+                        },
+                    ) { Text("Non merci") }
+                },
+            )
+        }
     }
 
     val del = deleteTarget

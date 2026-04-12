@@ -379,6 +379,35 @@ class GymRepository(private val db: AppDatabase) {
             ),
         )
 
+    /**
+     * Crée un modèle reprenant l’ordre et les fiches exercices de la séance (mêmes [exerciseId]).
+     */
+    suspend fun saveSessionAsTemplate(sessionId: Long, name: String, description: String?): Long =
+        db.withTransaction {
+            val entries = exerciseDao.listForSession(sessionId).sortedWith(
+                compareBy<ExerciseEntryEntity> { it.orderIndex }.thenBy { it.id },
+            )
+            require(entries.isNotEmpty()) { "Aucun exercice dans cette séance." }
+            val templateId = templateDao.insert(
+                WorkoutTemplateEntity(
+                    name = name.trim().ifBlank { "Modèle" },
+                    description = description?.trim()?.takeIf { it.isNotEmpty() },
+                    createdAtMillis = System.currentTimeMillis(),
+                ),
+            )
+            for (e in entries) {
+                templateExerciseDao.insert(
+                    TemplateExerciseEntity(
+                        id = 0L,
+                        templateId = templateId,
+                        orderIndex = e.orderIndex,
+                        exerciseId = e.exerciseId,
+                    ),
+                )
+            }
+            templateId
+        }
+
     suspend fun updateTemplate(template: WorkoutTemplateEntity) = templateDao.update(template)
 
     suspend fun deleteTemplate(id: Long) {

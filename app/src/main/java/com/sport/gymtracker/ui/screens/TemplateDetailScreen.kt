@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -72,6 +73,7 @@ fun TemplateDetailScreen(
     val exercises by vm.exercises.collectAsState()
     val exerciseBlueprints by vm.exerciseBlueprints.collectAsState()
     var fabMenuExpanded by remember { mutableStateOf(false) }
+    var templateActionsMenuExpanded by remember { mutableStateOf(false) }
     var showBlueprintPicker by remember { mutableStateOf(false) }
     var editingMeta by remember { mutableStateOf(false) }
     var metaName by remember { mutableStateOf("") }
@@ -88,15 +90,52 @@ fun TemplateDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(template?.name ?: "Modèle") },
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = template?.name ?: "Modèle",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Box {
+                            IconButton(
+                                onClick = { templateActionsMenuExpanded = true },
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = "Actions du modèle",
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = templateActionsMenuExpanded,
+                                onDismissRequest = { templateActionsMenuExpanded = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Renommer") },
+                                    onClick = {
+                                        templateActionsMenuExpanded = false
+                                        editingMeta = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Supprimer") },
+                                    onClick = {
+                                        templateActionsMenuExpanded = false
+                                        confirmDeleteTemplate = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
-                },
-                actions = {
-                    TextButton(onClick = { editingMeta = true }) { Text("Renommer") }
-                    TextButton(onClick = { confirmDeleteTemplate = true }) { Text("Supprimer") }
                 },
             )
         },
