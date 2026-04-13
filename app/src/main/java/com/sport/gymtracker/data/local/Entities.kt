@@ -38,6 +38,8 @@ data class ExerciseEntryEntity(
     val level: String,
     /** Exercice coché comme réalisé pendant la séance (séance en cours ou terminée). */
     val doneInSession: Boolean = false,
+    /** Séries cochées pendant la séance (bit i = série i+1). */
+    val completedSetsMask: Long = 0L,
     /** Renseigné à la fin de la séance si [doneInSession] : copie de la prescription pour l’historique. */
     val perfCapturedAtMillis: Long? = null,
     val perfWorkMode: String? = null,

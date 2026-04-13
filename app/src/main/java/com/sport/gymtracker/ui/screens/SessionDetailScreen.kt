@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,9 +56,13 @@ import com.sport.gymtracker.domain.exerciseTypeLabelFr
 import com.sport.gymtracker.domain.intensitySummary
 import com.sport.gymtracker.domain.prescriptionSummaryShort
 import com.sport.gymtracker.domain.showsRestOnCard
+import com.sport.gymtracker.data.local.exerciseEntryBlocksSessionEnd
+import com.sport.gymtracker.data.local.fullExerciseSetsMask
 import com.sport.gymtracker.ui.components.AddExerciseDropdownFab
 import com.sport.gymtracker.ui.components.BlueprintLibraryPickerDialog
 import com.sport.gymtracker.ui.components.ExerciseCardInfoContent
+import com.sport.gymtracker.ui.components.FullscreenRestCountdownOverlay
+import com.sport.gymtracker.ui.components.SessionSetProgressUi
 import com.sport.gymtracker.ui.theme.exerciseDoneCheckIconTint
 import com.sport.gymtracker.ui.theme.sessionCompletedCardColors
 import com.sport.gymtracker.ui.theme.sessionInProgressCardBackground
@@ -92,7 +97,19 @@ fun SessionDetailScreen(
     val snackbarScope = rememberCoroutineScope()
     var blueprintPickerSelection by remember { mutableStateOf<List<Long>>(emptyList()) }
     var exerciseNoteDialog by remember { mutableStateOf<String?>(null) }
+    var restOverlaySeconds by remember { mutableStateOf<Int?>(null) }
     val hasValidatedExercise = exercises.any { it.entry.doneInSession }
+    val hasPartialExerciseBlockingEnd =
+        exercises.any { line ->
+            exerciseEntryBlocksSessionEnd(line.entry, line.exercise.sets)
+        }
+    val canEndSession = hasValidatedExercise && !hasPartialExerciseBlockingEnd
+
+    LaunchedEffect(Unit) {
+        vm.restCountdownRequest.collect { sec ->
+            if (sec > 0) restOverlaySeconds = sec
+        }
+    }
 
     LaunchedEffect(showBlueprintPicker) {
         if (showBlueprintPicker) {
@@ -100,9 +117,10 @@ fun SessionDetailScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
             TopAppBar(
                 title = { Text(session?.title ?: "Séance") },
                 navigationIcon = {
@@ -130,8 +148,8 @@ fun SessionDetailScreen(
                     }
                 },
             )
-        },
-        floatingActionButton = {
+            },
+            floatingActionButton = {
             if (session != null) {
                 AddExerciseDropdownFab(
                     expanded = fabMenuExpanded,
@@ -140,13 +158,21 @@ fun SessionDetailScreen(
                     onFromLibrary = { showBlueprintPicker = true },
                 )
             }
-        },
-    ) { padding ->
-        LazyColumn(
+            },
+        ) { padding ->
+            val sessionForFabInset = session
+            LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(
+                bottom = if (sessionForFabInset != null && sessionForFabInset.endTimeMillis == null) {
+                    96.dp
+                } else {
+                    0.dp
+                },
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -170,6 +196,14 @@ fun SessionDetailScreen(
                                     modifier = Modifier.padding(top = 12.dp),
                                 )
                             }
+                            hasPartialExerciseBlockingEnd -> {
+                                Text(
+                                    "Des exercices ont des séries commencées mais incomplètes. Terminez toutes les séries ou modifiez l’exercice (nombre de séries, etc.).",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 12.dp),
+                                )
+                            }
                             !hasValidatedExercise -> {
                                 Text(
                                     "Validez au moins un exercice pour pouvoir terminer la séance.",
@@ -181,7 +215,7 @@ fun SessionDetailScreen(
                         }
                         Button(
                             onClick = { confirmEnd = true },
-                            enabled = hasValidatedExercise,
+                            enabled = canEndSession,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 12.dp),
@@ -203,6 +237,8 @@ fun SessionDetailScreen(
                     .joinToString { it.labelFr }
                 val sessionActive = session?.endTimeMillis == null
                 val done = line.entry.doneInSession
+                val allSeriesValidated =
+                    line.entry.completedSetsMask == fullExerciseSetsMask(line.exercise.sets)
                 val completedPair = sessionCompletedCardColors()
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -241,7 +277,18 @@ fun SessionDetailScreen(
                                 musclesLine = muscles,
                                 showRestBetweenSets = def.showsRestOnCard(),
                                 restBetweenSetsSeconds = def.restBetweenSetsSeconds,
-                                useRestCountdown = sessionActive,
+                                sessionSetProgress =
+                                    if (sessionActive && !done) {
+                                        SessionSetProgressUi(
+                                            plannedSets = def.sets.coerceAtLeast(1).coerceAtMost(64),
+                                            completedMask = line.entry.completedSetsMask,
+                                            onSetClick = { idx ->
+                                                vm.onExerciseSetClicked(line.entry.id, idx)
+                                            },
+                                        )
+                                    } else {
+                                        null
+                                    },
                             )
                             Row(
                                 modifier = Modifier
@@ -267,14 +314,15 @@ fun SessionDetailScreen(
                         }
                         IconButton(
                             onClick = { vm.setExerciseDone(line.entry.id, !line.entry.doneInSession) },
+                            enabled = done || allSeriesValidated,
                             modifier = Modifier.align(Alignment.TopEnd),
                         ) {
                             Icon(
                                 imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
-                                contentDescription = if (done) {
-                                    "Dévalider l’exercice"
-                                } else {
-                                    "Valider l’exercice"
+                                contentDescription = when {
+                                    done -> "Dévalider l’exercice"
+                                    allSeriesValidated -> "Valider l’exercice"
+                                    else -> "Validez toutes les séries avant de cocher l’exercice"
                                 },
                                 tint = if (done) {
                                     exerciseDoneCheckIconTint()
@@ -289,6 +337,15 @@ fun SessionDetailScreen(
         }
     }
 
+        restOverlaySeconds?.let { sec ->
+            FullscreenRestCountdownOverlay(
+                totalSeconds = sec,
+                onFinished = { restOverlaySeconds = null },
+                onStop = { restOverlaySeconds = null },
+            )
+        }
+    }
+
     if (confirmEnd) {
         AlertDialog(
             onDismissRequest = { confirmEnd = false },
@@ -296,7 +353,7 @@ fun SessionDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (!hasValidatedExercise) return@TextButton
+                        if (!canEndSession) return@TextButton
                         val offerSaveAsTemplate =
                             session?.sourceTemplateId == null && exercises.isNotEmpty()
                         templateNameDraft = ""
@@ -308,7 +365,7 @@ fun SessionDetailScreen(
                             showSaveAsTemplate = true
                         }
                     },
-                    enabled = hasValidatedExercise,
+                    enabled = canEndSession,
                 ) { Text("Terminer") }
             },
             dismissButton = {

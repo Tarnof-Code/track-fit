@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         TemplateExerciseEntity::class,
         ExerciseBlueprintEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -43,6 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_14_15,
                     MIGRATION_15_16,
                     MIGRATION_16_17,
+                    MIGRATION_17_18,
                 )
                 .fallbackToDestructiveMigration()
                 .build()

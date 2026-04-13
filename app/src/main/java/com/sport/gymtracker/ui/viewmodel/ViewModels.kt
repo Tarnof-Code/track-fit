@@ -13,6 +13,9 @@ import com.sport.gymtracker.data.StartSessionResult
 import com.sport.gymtracker.data.HomeState
 import com.sport.gymtracker.data.StatisticsOverview
 import com.sport.gymtracker.data.local.ExerciseEntryEntity
+import com.sport.gymtracker.data.local.completedSetsPrefixCount
+import com.sport.gymtracker.data.local.fullExerciseSetsMask
+import com.sport.gymtracker.data.local.nextMaskSequentialSetToggle
 import com.sport.gymtracker.data.local.ExercisePerformanceHistoryRow
 import com.sport.gymtracker.data.local.TemplateExerciseEntity
 import com.sport.gymtracker.data.local.exerciseBlueprintFromEditorInput
@@ -23,8 +26,10 @@ import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.SkillLevel
 import com.sport.gymtracker.domain.recommendedRestSeconds
 import com.sport.gymtracker.requireGymRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -181,6 +186,9 @@ class SessionDetailViewModel(
     val exerciseBlueprints = repo.observeExerciseBlueprints()
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
+    private val _restCountdownRequest = MutableSharedFlow<Int>(extraBufferCapacity = 8)
+    val restCountdownRequest = _restCountdownRequest.asSharedFlow()
+
     fun addExerciseFromBlueprint(blueprintId: Long) {
         viewModelScope.launch {
             repo.addExerciseFromBlueprintToSession(sessionId, blueprintId)
@@ -223,7 +231,33 @@ class SessionDetailViewModel(
         viewModelScope.launch {
             val ex = repo.getExercise(exerciseId) ?: return@launch
             if (ex.sessionId != sessionId) return@launch
+            if (done) {
+                val bp = repo.getExerciseBlueprint(ex.exerciseId) ?: return@launch
+                if (ex.completedSetsMask != fullExerciseSetsMask(bp.sets)) return@launch
+            }
             repo.updateExerciseDoneInSession(exerciseId, done)
+        }
+    }
+
+    /** Bascule une série ; lance le repos plein écran si besoin (sauf après la dernière série). */
+    fun onExerciseSetClicked(entryId: Long, setIndex: Int) {
+        viewModelScope.launch {
+            val line = exercises.value.find { it.entry.id == entryId } ?: return@launch
+            if (session.value?.endTimeMillis != null) return@launch
+            if (line.entry.doneInSession) return@launch
+            val bp = line.exercise
+            val sets = bp.sets.coerceAtLeast(1).coerceAtMost(64)
+            if (setIndex !in 0 until sets) return@launch
+            val old = line.entry.completedSetsMask
+            val kBefore = completedSetsPrefixCount(old, sets)
+            val newMask = nextMaskSequentialSetToggle(setIndex, old, sets) ?: return@launch
+            val turningOn = setIndex == kBefore && kBefore < sets
+            repo.updateExerciseCompletedSetsMask(entryId, newMask)
+            if (!turningOn) return@launch
+            val lastSetIndex = sets - 1
+            if (setIndex < lastSetIndex && bp.restBetweenSetsSeconds > 0) {
+                _restCountdownRequest.emit(bp.restBetweenSetsSeconds)
+            }
         }
     }
 

@@ -25,6 +25,8 @@ import com.sport.gymtracker.data.local.WorkoutSessionEntity
 import com.sport.gymtracker.data.local.WorkoutTemplateEntity
 import com.sport.gymtracker.data.local.toTemplatePlacement
 import com.sport.gymtracker.data.local.clearPerformanceSnapshot
+import com.sport.gymtracker.data.local.exerciseEntryBlocksSessionEnd
+import com.sport.gymtracker.data.local.fullExerciseSetsMask
 import com.sport.gymtracker.data.local.withPerformanceSnapshotFromBlueprint
 import com.sport.gymtracker.domain.Difficulty
 import com.sport.gymtracker.domain.MuscleGroup
@@ -332,6 +334,10 @@ class GymRepository(private val db: AppDatabase) {
         val entries = exerciseDao.listForSession(sessionId)
         if (entries.isEmpty()) return
         if (entries.none { it.doneInSession }) return
+        for (e in entries) {
+            val bp = exerciseBlueprintDao.getById(e.exerciseId) ?: continue
+            if (exerciseEntryBlocksSessionEnd(e, bp.sets)) return
+        }
         val endMillis = System.currentTimeMillis()
         db.withTransaction {
             for (e in entries) {
@@ -366,7 +372,19 @@ class GymRepository(private val db: AppDatabase) {
         val session = sessionDao.getById(entry.sessionId) ?: return
         val endMillis = session.endTimeMillis
         if (endMillis == null) {
-            exerciseDao.update(entry.copy(doneInSession = done))
+            if (done) {
+                val bpDone = exerciseBlueprintDao.getById(entry.exerciseId) ?: return
+                val fullMaskRequired = fullExerciseSetsMask(bpDone.sets)
+                if (entry.completedSetsMask != fullMaskRequired) return
+            }
+            val bp = exerciseBlueprintDao.getById(entry.exerciseId)
+            val fullMask = bp?.let { fullExerciseSetsMask(it.sets) } ?: 0L
+            exerciseDao.update(
+                entry.copy(
+                    doneInSession = done,
+                    completedSetsMask = if (done) fullMask else entry.completedSetsMask,
+                ),
+            )
             return
         }
         if (done) {
@@ -382,6 +400,26 @@ class GymRepository(private val db: AppDatabase) {
     suspend fun deleteExercise(id: Long) = exerciseDao.deleteById(id)
 
     suspend fun getExercise(id: Long): ExerciseEntryEntity? = exerciseDao.getById(id)
+
+    /**
+     * Met à jour le masque des séries réalisées ; [ExerciseEntryEntity.doneInSession] devient true
+     * lorsque toutes les séries prévues sont cochées.
+     */
+    suspend fun updateExerciseCompletedSetsMask(entryId: Long, newMask: Long) {
+        val entry = exerciseDao.getById(entryId) ?: return
+        val session = sessionDao.getById(entry.sessionId) ?: return
+        if (session.endTimeMillis != null) return
+        val bp = exerciseBlueprintDao.getById(entry.exerciseId) ?: return
+        val fullMask = fullExerciseSetsMask(bp.sets)
+        val clamped = newMask and fullMask
+        val done = clamped == fullMask
+        exerciseDao.update(
+            entry.copy(
+                completedSetsMask = clamped,
+                doneInSession = done,
+            ),
+        )
+    }
 
     suspend fun nextOrderIndex(sessionId: Long): Int {
         val list = exerciseDao.listForSession(sessionId)
