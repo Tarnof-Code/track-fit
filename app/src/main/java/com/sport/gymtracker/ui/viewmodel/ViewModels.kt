@@ -9,6 +9,7 @@ import com.sport.gymtracker.data.backup.DataImportResult
 import com.sport.gymtracker.data.backup.ImportContentScope
 import com.sport.gymtracker.data.ExerciseProgressListItem
 import com.sport.gymtracker.data.GymRepository
+import com.sport.gymtracker.data.TemplatePreviewForSession
 import com.sport.gymtracker.data.StartSessionResult
 import com.sport.gymtracker.data.HomeState
 import com.sport.gymtracker.data.StatisticsOverview
@@ -162,6 +163,15 @@ class SessionsViewModel(private val repo: GymRepository) : ViewModel() {
 
     fun deleteSession(id: Long) {
         viewModelScope.launch { repo.deleteSession(id) }
+    }
+
+    fun loadTemplatePreviewForNewSession(
+        templateId: Long,
+        onLoaded: (TemplatePreviewForSession?) -> Unit,
+    ) {
+        viewModelScope.launch {
+            onLoaded(repo.loadTemplatePreviewForNewSession(templateId))
+        }
     }
 
     companion object {

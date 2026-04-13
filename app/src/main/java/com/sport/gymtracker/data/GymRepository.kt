@@ -60,6 +60,13 @@ data class SessionExerciseLine(
     val exercise: ExerciseBlueprintEntity,
 )
 
+/** Aperçu lecture seule d’un modèle (ex. dialogue « Nouvelle séance »). */
+data class TemplatePreviewForSession(
+    val name: String,
+    val description: String?,
+    val exercises: List<TemplateExerciseLine>,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class GymRepository(private val db: AppDatabase) {
 
@@ -105,6 +112,27 @@ class GymRepository(private val db: AppDatabase) {
                 val byName = FrenchExerciseNameCollator.compare(a.exercise.name, b.exercise.name)
                 if (byName != 0) byName else a.placement.id.compareTo(b.placement.id)
             }
+        }
+
+    suspend fun loadTemplatePreviewForNewSession(templateId: Long): TemplatePreviewForSession? =
+        withContext(Dispatchers.IO) {
+            val t = templateDao.getById(templateId) ?: return@withContext null
+            val placements = templateExerciseDao.listForTemplate(templateId)
+            val exercises =
+                if (placements.isEmpty()) {
+                    emptyList()
+                } else {
+                    val defs = exerciseBlueprintDao.listAll().associateBy { it.id }
+                    placements.mapNotNull { p ->
+                        val def = defs[p.exerciseId] ?: return@mapNotNull null
+                        TemplateExerciseLine(p, def)
+                    }
+                }
+            TemplatePreviewForSession(
+                name = t.name,
+                description = t.description,
+                exercises = exercises,
+            )
         }
 
     fun observeExerciseBlueprints() = exerciseBlueprintDao.observeAll()

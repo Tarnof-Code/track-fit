@@ -2,6 +2,7 @@ package com.sport.gymtracker.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,7 +25,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sport.gymtracker.data.TemplatePreviewForSession
 import com.sport.gymtracker.data.local.WorkoutTemplateListRow
+import com.sport.gymtracker.domain.MuscleGroup
+import com.sport.gymtracker.domain.exerciseTypeLabelFr
+import com.sport.gymtracker.domain.intensitySummary
+import com.sport.gymtracker.domain.prescriptionSummaryShort
+import com.sport.gymtracker.domain.showsRestOnCard
+import com.sport.gymtracker.domain.sortedByFrenchLabel
 import java.util.Locale
 
 @Composable
@@ -31,11 +40,18 @@ fun NewSessionDialog(
     templateRows: List<WorkoutTemplateListRow>,
     onDismiss: () -> Unit,
     onCreate: (templateId: Long?) -> Unit,
+    /** Charge l’aperçu du modèle (asynchrone) ; appelé depuis le fil principal pour mettre à jour l’UI. */
+    onLoadTemplatePreview: (templateId: Long, onLoaded: (TemplatePreviewForSession?) -> Unit) -> Unit,
     title: String = "Nouvelle séance",
     confirmLabel: String = "Créer",
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedTemplateId by remember { mutableStateOf<Long?>(null) }
+
+    var templatePreviewOpen by remember { mutableStateOf(false) }
+    var templatePreviewLoading by remember { mutableStateOf(false) }
+    var templatePreviewData by remember { mutableStateOf<TemplatePreviewForSession?>(null) }
+    var previewExerciseNote by remember { mutableStateOf<String?>(null) }
 
     val qNorm = searchQuery.trim().lowercase(Locale.FRENCH)
     val filteredTemplateRows =
@@ -58,13 +74,19 @@ fun NewSessionDialog(
             }
         }
 
+    fun closeTemplatePreview() {
+        templatePreviewOpen = false
+        templatePreviewData = null
+        templatePreviewLoading = false
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Coche un modèle ou « Aucun » pour une séance vide. Un seul choix à la fois.",
+                    "Coche un modèle ou « Aucun » pour une séance vide. « Voir » affiche le programme dans une fenêtre.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -124,28 +146,48 @@ fun NewSessionDialog(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { selectedTemplateId = t.id }
-                                        .padding(8.dp),
+                                        .padding(4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Checkbox(
-                                        checked = selected,
-                                        onCheckedChange = null,
-                                    )
-                                    Column(Modifier.padding(start = 4.dp)) {
-                                        Text(t.name, style = MaterialTheme.typography.titleSmall)
-                                        if (!t.description.isNullOrBlank()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { selectedTemplateId = t.id }
+                                            .padding(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Checkbox(
+                                            checked = selected,
+                                            onCheckedChange = null,
+                                        )
+                                        Column(Modifier.padding(start = 4.dp)) {
+                                            Text(t.name, style = MaterialTheme.typography.titleSmall)
+                                            if (!t.description.isNullOrBlank()) {
+                                                Text(
+                                                    t.description,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                             Text(
-                                                t.description,
+                                                "${t.exerciseCount} exercice(s) dans le programme",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }
-                                        Text(
-                                            "${t.exerciseCount} exercice(s) dans le programme",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            templatePreviewOpen = true
+                                            templatePreviewLoading = true
+                                            templatePreviewData = null
+                                            onLoadTemplatePreview(t.id) { data ->
+                                                templatePreviewData = data
+                                                templatePreviewLoading = false
+                                            }
+                                        },
+                                    ) {
+                                        Text("Voir")
                                     }
                                 }
                             }
@@ -161,4 +203,99 @@ fun NewSessionDialog(
             TextButton(onClick = onDismiss) { Text("Annuler") }
         },
     )
+
+    if (templatePreviewOpen) {
+        AlertDialog(
+            onDismissRequest = { closeTemplatePreview() },
+            title = { Text(templatePreviewData?.name ?: "Modèle") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 480.dp),
+                ) {
+                    when {
+                        templatePreviewLoading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        templatePreviewData == null -> {
+                            Text(
+                                "Impossible de charger ce modèle.",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        else -> {
+                            val data = templatePreviewData!!
+                            Column(
+                                modifier = Modifier.verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                if (!data.description.isNullOrBlank()) {
+                                    Text(
+                                        data.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                if (data.exercises.isEmpty()) {
+                                    Text(
+                                        "Aucun exercice dans ce modèle.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                } else {
+                                    data.exercises.forEach { line ->
+                                        val def = line.exercise
+                                        val muscles = MuscleGroup.fromStorageList(def.muscleGroupsCsv)
+                                            .sortedByFrenchLabel()
+                                            .joinToString { it.labelFr }
+                                        Card(modifier = Modifier.fillMaxWidth()) {
+                                            Column(
+                                                Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                            ) {
+                                                ExerciseCardInfoContent(
+                                                    name = def.name,
+                                                    notes = def.notes,
+                                                    onNotesClick = { previewExerciseNote = def.notes },
+                                                    exerciseTypeLabel = def.exerciseTypeLabelFr(),
+                                                    prescriptionLine = def.prescriptionSummaryShort(),
+                                                    intensityLine = def.intensitySummary(),
+                                                    equipment = def.equipment,
+                                                    musclesLine = muscles,
+                                                    showRestBetweenSets = def.showsRestOnCard(),
+                                                    restBetweenSetsSeconds = def.restBetweenSetsSeconds,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { closeTemplatePreview() }) { Text("Fermer") }
+            },
+        )
+    }
+
+    previewExerciseNote?.let { noteText ->
+        AlertDialog(
+            onDismissRequest = { previewExerciseNote = null },
+            title = { Text("Note") },
+            text = {
+                Text(noteText, style = MaterialTheme.typography.bodyMedium)
+            },
+            confirmButton = {
+                TextButton(onClick = { previewExerciseNote = null }) { Text("OK") }
+            },
+        )
+    }
 }

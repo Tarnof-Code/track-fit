@@ -94,7 +94,9 @@ private fun formatDurationPendantCompactFr(elapsedMs: Long): String {
 }
 
 @Composable
-fun SessionsScreen(onSessionClick: (Long) -> Unit) {
+fun SessionsScreen(
+    onSessionClick: (Long) -> Unit,
+) {
     val context = LocalContext.current
     val vm: SessionsViewModel = viewModel(factory = SessionsViewModel.factory(context.applicationContext as android.app.Application))
     val sessions by vm.sessions.collectAsState()
@@ -250,6 +252,9 @@ fun SessionsScreen(onSessionClick: (Long) -> Unit) {
         NewSessionDialog(
             templateRows = templateRows,
             onDismiss = { showNew = false },
+            onLoadTemplatePreview = { templateId, onLoaded ->
+                vm.loadTemplatePreviewForNewSession(templateId, onLoaded)
+            },
             onCreate = { templateId ->
                 vm.startSession(
                     templateId = templateId,

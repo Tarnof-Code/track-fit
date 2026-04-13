@@ -167,6 +167,9 @@ fun HomeScreen(
         NewSessionDialog(
             templateRows = templateRows,
             onDismiss = { showNewSession = false },
+            onLoadTemplatePreview = { templateId, onLoaded ->
+                sessionsVm.loadTemplatePreviewForNewSession(templateId, onLoaded)
+            },
             onCreate = { templateId ->
                 sessionsVm.startSession(
                     templateId = templateId,
