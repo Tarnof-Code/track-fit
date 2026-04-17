@@ -36,6 +36,65 @@ data class SessionSetProgressUi(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+fun SessionSetProgressChips(
+    sessionSetProgress: SessionSetProgressUi,
+    prescriptionLineAbove: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    val total = sessionSetProgress.plannedSets
+    val rowCount = (total + 4) / 5
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        prescriptionLineAbove?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
+        repeat(rowCount) { rowIndex ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val start = rowIndex * 5
+                val end = min(start + 5, total)
+                for (idx in start until end) {
+                    val completed =
+                        (sessionSetProgress.completedMask and (1L shl idx)) != 0L
+                    val chipEnabled = canToggleExerciseSetSequentially(
+                        idx,
+                        sessionSetProgress.completedMask,
+                        total,
+                    )
+                    FilterChip(
+                        selected = completed,
+                        onClick = { sessionSetProgress.onSetClick(idx) },
+                        label = {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "${idx + 1}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        },
+                        leadingIcon = null,
+                        enabled = chipEnabled,
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = CompletedSetGreen,
+                            selectedLabelColor = CompletedSetOnGreen,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 fun ExerciseCardInfoContent(
     name: String,
     notes: String = "",
@@ -96,56 +155,11 @@ fun ExerciseCardInfoContent(
             Text("Muscles : $musclesLine", style = MaterialTheme.typography.bodySmall)
         }
         if (sessionSetProgress != null && sessionSetProgress.plannedSets > 0) {
-            val total = sessionSetProgress.plannedSets
-            val rowCount = (total + 4) / 5
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(prescriptionLine, style = MaterialTheme.typography.bodyMedium)
-                repeat(rowCount) { rowIndex ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        val start = rowIndex * 5
-                        val end = min(start + 5, total)
-                        for (idx in start until end) {
-                            val completed =
-                                (sessionSetProgress.completedMask and (1L shl idx)) != 0L
-                            val chipEnabled = canToggleExerciseSetSequentially(
-                                idx,
-                                sessionSetProgress.completedMask,
-                                total,
-                            )
-                            FilterChip(
-                                selected = completed,
-                                onClick = { sessionSetProgress.onSetClick(idx) },
-                                label = {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            "${idx + 1}",
-                                            style = MaterialTheme.typography.labelLarge,
-                                        )
-                                    }
-                                },
-                                leadingIcon = null,
-                                enabled = chipEnabled,
-                                modifier = Modifier.weight(1f),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = CompletedSetGreen,
-                                    selectedLabelColor = CompletedSetOnGreen,
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
+            SessionSetProgressChips(
+                sessionSetProgress = sessionSetProgress,
+                prescriptionLineAbove = prescriptionLine,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
         if (showRestBetweenSets && restBetweenSetsSeconds > 0) {
             Text(

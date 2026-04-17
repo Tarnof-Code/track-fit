@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TrackFit</string>
+    <string name="session_combo_section_title">Combinaison</string>
+    <string name="session_combine_with">Combiner</string>
+    <string name="session_combine_pick_title">Choisir l’exercice à enchaîner</string>
+    <string name="session_separate_combo">Séparer la combinaison</string>
+    <string name="session_rest_between_rounds">Repos entre tours : %1$ds</string>
+    <string name="session_combine_no_candidate">Aucun autre exercice disponible pour une combinaison.</string>
 </resources>

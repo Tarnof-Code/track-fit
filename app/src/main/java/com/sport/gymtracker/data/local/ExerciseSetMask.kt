@@ -9,6 +9,15 @@ fun fullExerciseSetsMask(setsCount: Int): Long {
     }
 }
 
+/** Masque des [completedCount] premières séries (préfixe), pour [totalSets] séries prévues au plus. */
+fun completedPrefixMask(completedCount: Int, totalSets: Int): Long {
+    val total = totalSets.coerceAtLeast(1).coerceAtMost(64)
+    val c = completedCount.coerceIn(0, total)
+    if (c == 0) return 0L
+    if (c == total) return fullExerciseSetsMask(total)
+    return (1L shl c) - 1L
+}
+
 /** Nombre de séries validées consécutivement depuis la série 1 (préfixe du masque). */
 fun completedSetsPrefixCount(mask: Long, totalSets: Int): Int {
     val total = totalSets.coerceAtLeast(1).coerceAtMost(64)
@@ -17,13 +26,8 @@ fun completedSetsPrefixCount(mask: Long, totalSets: Int): Int {
     return k
 }
 
-private fun maskForCompletedCount(completed: Int, totalSets: Int): Long {
-    val total = totalSets.coerceAtLeast(1).coerceAtMost(64)
-    val c = completed.coerceIn(0, total)
-    if (c == 0) return 0L
-    if (c == total) return fullExerciseSetsMask(total)
-    return (1L shl c) - 1L
-}
+private fun maskForCompletedCount(completed: Int, totalSets: Int): Long =
+    completedPrefixMask(completed, totalSets)
 
 /**
  * Si le clic est autorisé (ordre strict : valider 1 puis 2… ; décocher seulement la dernière validée),

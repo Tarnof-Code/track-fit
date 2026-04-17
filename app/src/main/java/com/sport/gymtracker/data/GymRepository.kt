@@ -25,8 +25,12 @@ import com.sport.gymtracker.data.local.WorkoutSessionEntity
 import com.sport.gymtracker.data.local.WorkoutTemplateEntity
 import com.sport.gymtracker.data.local.toTemplatePlacement
 import com.sport.gymtracker.data.local.clearPerformanceSnapshot
+import com.sport.gymtracker.data.local.completedPrefixMask
 import com.sport.gymtracker.data.local.completedSetsPrefixCount
+import com.sport.gymtracker.data.local.combinedSessionStepsCompleted
 import com.sport.gymtracker.data.local.fullExerciseSetsMask
+import com.sport.gymtracker.data.local.nextMaskSequentialSetToggle
+import com.sport.gymtracker.data.local.sessionEntryMasksForCombinedSteps
 import com.sport.gymtracker.data.local.withPerformanceSnapshotFromBlueprint
 import com.sport.gymtracker.domain.Difficulty
 import com.sport.gymtracker.domain.MuscleGroup
@@ -39,6 +43,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Calendar
@@ -59,6 +64,35 @@ data class SessionExerciseLine(
     val entry: ExerciseEntryEntity,
     val exercise: ExerciseBlueprintEntity,
 )
+
+/** Élément d’affichage : exercice seul ou combinaison de deux entrées liées ([ExerciseEntryEntity.comboGroupId]). */
+sealed class SessionExerciseListItem {
+    data class Single(val line: SessionExerciseLine) : SessionExerciseListItem()
+    data class Combo(val first: SessionExerciseLine, val second: SessionExerciseLine) : SessionExerciseListItem()
+}
+
+fun buildSessionExerciseListItems(sortedLines: List<SessionExerciseLine>): List<SessionExerciseListItem> {
+    val result = mutableListOf<SessionExerciseListItem>()
+    var i = 0
+    while (i < sortedLines.size) {
+        val line = sortedLines[i]
+        val gid = line.entry.comboGroupId
+        if (gid != null && i + 1 < sortedLines.size) {
+            val next = sortedLines[i + 1]
+            if (next.entry.comboGroupId == gid) {
+                val first =
+                    if (line.entry.orderIndex <= next.entry.orderIndex) line else next
+                val second = if (first === line) next else line
+                result.add(SessionExerciseListItem.Combo(first, second))
+                i += 2
+                continue
+            }
+        }
+        result.add(SessionExerciseListItem.Single(line))
+        i++
+    }
+    return result
+}
 
 /** Aperçu lecture seule d’un modèle (ex. dialogue « Nouvelle séance »). */
 data class TemplatePreviewForSession(
@@ -89,11 +123,13 @@ class GymRepository(private val db: AppDatabase) {
             entries.mapNotNull { e ->
                 val def = byId[e.exerciseId] ?: return@mapNotNull null
                 SessionExerciseLine(e, def)
-            }.sortedWith { a, b ->
-                val byName = FrenchExerciseNameCollator.compare(a.exercise.name, b.exercise.name)
-                if (byName != 0) byName else a.entry.id.compareTo(b.entry.id)
-            }
+            }.sortedWith(
+                compareBy<SessionExerciseLine> { it.entry.orderIndex }.thenBy { it.entry.id },
+            )
         }
+
+    fun observeSessionExerciseListItems(sessionId: Long): Flow<List<SessionExerciseListItem>> =
+        observeSessionExerciseLines(sessionId).map { buildSessionExerciseListItems(it) }
 
     fun observeTemplateListRows() = templateDao.observeListRows()
 
@@ -432,7 +468,112 @@ class GymRepository(private val db: AppDatabase) {
         }
     }
 
-    suspend fun deleteExercise(id: Long) = exerciseDao.deleteById(id)
+    suspend fun deleteExercise(id: Long) {
+        withContext(Dispatchers.IO) {
+            val e = exerciseDao.getById(id) ?: return@withContext
+            val gid = e.comboGroupId
+            val partner =
+                gid?.let { g ->
+                    exerciseDao.listForSession(e.sessionId).find { it.id != id && it.comboGroupId == g }
+                }
+            exerciseDao.deleteById(id)
+            partner?.let { p -> exerciseDao.update(p.copy(comboGroupId = null)) }
+        }
+    }
+
+    /**
+     * Regroupe deux exercices consécutifs en combinaison (repos commun entre tours).
+     * Réordonne pour placer les deux entrées côte à côte.
+     */
+    suspend fun combineSessionExercises(entryIdA: Long, entryIdB: Long) {
+        withContext(Dispatchers.IO) {
+            if (entryIdA == entryIdB) return@withContext
+            val a = exerciseDao.getById(entryIdA) ?: return@withContext
+            val b = exerciseDao.getById(entryIdB) ?: return@withContext
+            if (a.sessionId != b.sessionId) return@withContext
+            val session = sessionDao.getById(a.sessionId) ?: return@withContext
+            if (session.endTimeMillis != null) return@withContext
+            if (a.doneInSession || b.doneInSession) return@withContext
+            if (a.comboGroupId != null || b.comboGroupId != null) return@withContext
+            val list = exerciseDao.listForSession(a.sessionId).sortedWith(
+                compareBy<ExerciseEntryEntity> { it.orderIndex }.thenBy { it.id },
+            )
+            val i = list.indexOfFirst { it.id == entryIdA }
+            val j = list.indexOfFirst { it.id == entryIdB }
+            if (i < 0 || j < 0) return@withContext
+            val firstIdx = minOf(i, j)
+            val secondIdx = maxOf(i, j)
+            val newOrder = buildList {
+                addAll(list.subList(0, firstIdx))
+                add(list[firstIdx])
+                add(list[secondIdx])
+                addAll(list.subList(firstIdx + 1, secondIdx))
+                addAll(list.subList(secondIdx + 1, list.size))
+            }
+            val groupId = System.currentTimeMillis()
+            db.withTransaction {
+                newOrder.forEachIndexed { idx, e ->
+                    val updated =
+                        when (e.id) {
+                            entryIdA, entryIdB -> e.copy(orderIndex = idx, comboGroupId = groupId)
+                            else -> e.copy(orderIndex = idx)
+                        }
+                    exerciseDao.update(updated)
+                }
+            }
+        }
+    }
+
+    suspend fun splitSessionExerciseCombo(entryId: Long) {
+        withContext(Dispatchers.IO) {
+            val e = exerciseDao.getById(entryId) ?: return@withContext
+            val gid = e.comboGroupId ?: return@withContext
+            val partner =
+                exerciseDao.listForSession(e.sessionId).find { it.id != e.id && it.comboGroupId == gid }
+                    ?: return@withContext
+            exerciseDao.update(e.copy(comboGroupId = null))
+            exerciseDao.update(partner.copy(comboGroupId = null))
+        }
+    }
+
+    /**
+     * Bascule le tour de combinaison [setIndex] (0-based) pour les deux entrées ; met à jour les masques.
+     * @return secondes de repos plein écran à lancer, ou null.
+     */
+    suspend fun toggleComboSessionSet(entryIdA: Long, entryIdB: Long, setIndex: Int): Int? =
+        withContext(Dispatchers.IO) {
+            val a = exerciseDao.getById(entryIdA) ?: return@withContext null
+            val b = exerciseDao.getById(entryIdB) ?: return@withContext null
+            if (a.sessionId != b.sessionId) return@withContext null
+            if (a.comboGroupId == null || a.comboGroupId != b.comboGroupId) return@withContext null
+            val sess = sessionDao.getById(a.sessionId) ?: return@withContext null
+            if (sess.endTimeMillis != null) return@withContext null
+            if (a.doneInSession || b.doneInSession) return@withContext null
+            val bpA = exerciseBlueprintDao.getById(a.exerciseId) ?: return@withContext null
+            val bpB = exerciseBlueprintDao.getById(b.exerciseId) ?: return@withContext null
+            val setsA = bpA.sets.coerceAtLeast(1).coerceAtMost(64)
+            val setsB = bpB.sets.coerceAtLeast(1).coerceAtMost(64)
+            val maxSets = maxOf(setsA, setsB)
+            val kA = completedSetsPrefixCount(a.completedSetsMask, setsA)
+            val kB = completedSetsPrefixCount(b.completedSetsMask, setsB)
+            val c = combinedSessionStepsCompleted(kA, kB, setsA, setsB)
+            val synMask = completedPrefixMask(c, maxSets)
+            val newSyn = nextMaskSequentialSetToggle(setIndex, synMask, maxSets) ?: return@withContext null
+            val newC = completedSetsPrefixCount(newSyn, maxSets)
+            val turningOn = newC > c
+            val (maskA, maskB) = sessionEntryMasksForCombinedSteps(newC, setsA, setsB)
+            db.withTransaction {
+                persistEntrySetMask(a, maskA)
+                persistEntrySetMask(b, maskB)
+            }
+            if (!turningOn) return@withContext null
+            val lastSetIndex = maxSets - 1
+            if (setIndex < lastSetIndex) {
+                val rest = maxOf(bpA.restBetweenSetsSeconds, bpB.restBetweenSetsSeconds)
+                return@withContext rest.takeIf { it > 0 }
+            }
+            null
+        }
 
     suspend fun getExercise(id: Long): ExerciseEntryEntity? = exerciseDao.getById(id)
 
@@ -448,6 +589,19 @@ class GymRepository(private val db: AppDatabase) {
         val fullMask = fullExerciseSetsMask(bp.sets)
         val clamped = newMask and fullMask
         val done = clamped == fullMask
+        exerciseDao.update(
+            entry.copy(
+                completedSetsMask = clamped,
+                doneInSession = done,
+            ),
+        )
+    }
+
+    private suspend fun persistEntrySetMask(entry: ExerciseEntryEntity, mask: Long) {
+        val bp = exerciseBlueprintDao.getById(entry.exerciseId) ?: return
+        val full = fullExerciseSetsMask(bp.sets)
+        val clamped = mask and full
+        val done = clamped == full
         exerciseDao.update(
             entry.copy(
                 completedSetsMask = clamped,

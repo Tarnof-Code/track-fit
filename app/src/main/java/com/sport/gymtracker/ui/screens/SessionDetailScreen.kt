@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -45,11 +47,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.sport.gymtracker.R
+import com.sport.gymtracker.data.SessionExerciseListItem
+import com.sport.gymtracker.data.SessionExerciseLine
+import com.sport.gymtracker.data.local.completedPrefixMask
+import com.sport.gymtracker.data.local.combinedSessionStepsCompleted
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.sortedByFrenchLabel
@@ -62,6 +71,7 @@ import com.sport.gymtracker.ui.components.AddExerciseDropdownFab
 import com.sport.gymtracker.ui.components.BlueprintLibraryPickerDialog
 import com.sport.gymtracker.ui.components.ExerciseCardInfoContent
 import com.sport.gymtracker.ui.components.FullscreenRestCountdownOverlay
+import com.sport.gymtracker.ui.components.SessionSetProgressChips
 import com.sport.gymtracker.ui.components.SessionSetProgressUi
 import com.sport.gymtracker.ui.theme.exerciseDoneCheckIconTint
 import com.sport.gymtracker.ui.theme.sessionCompletedCardColors
@@ -99,8 +109,15 @@ fun SessionDetailScreen(
     val snackbarScope = rememberCoroutineScope()
     var blueprintPickerSelection by remember { mutableStateOf<List<Long>>(emptyList()) }
     var exerciseNoteDialog by remember { mutableStateOf<String?>(null) }
+    var combinePickerSourceId by remember { mutableStateOf<Long?>(null) }
     val restOverlayEndElapsedMs by vm.restOverlayEndElapsedMs.collectAsState()
-    val hasValidatedExercise = exercises.any { it.entry.doneInSession }
+    val hasValidatedExercise = exercises.any { item ->
+        when (item) {
+            is SessionExerciseListItem.Single -> item.line.entry.doneInSession
+            is SessionExerciseListItem.Combo ->
+                item.first.entry.doneInSession || item.second.entry.doneInSession
+        }
+    }
     val canEndSession = hasValidatedExercise
 
     LaunchedEffect(showBlueprintPicker) {
@@ -214,122 +231,371 @@ fun SessionDetailScreen(
                     }
                 }
             }
-            items(exercises, key = { it.entry.id }) { line ->
-                val def = line.exercise
-                val muscles = MuscleGroup.fromStorageList(def.muscleGroupsCsv)
-                    .sortedByFrenchLabel()
-                    .joinToString { it.labelFr }
-                val sessionActive = session?.endTimeMillis == null
-                val done = line.entry.doneInSession
-                val hasAtLeastOneCompletedSet =
-                    completedSetsPrefixCount(
-                        line.entry.completedSetsMask,
-                        line.exercise.sets,
-                    ) > 0
-                val plannedSets = def.sets.coerceAtLeast(1)
-                val performedSetsForDisplay =
-                    line.entry.perfSets
-                        ?: completedSetsPrefixCount(
-                            line.entry.completedSetsMask,
-                            def.sets,
-                        )
-                val prescriptionLine =
-                    if (done && performedSetsForDisplay in 1 until plannedSets) {
-                        def.prescriptionSummaryShort(setsOverride = performedSetsForDisplay)
-                    } else {
-                        def.prescriptionSummaryShort()
+            items(
+                exercises,
+                key = { item ->
+                    when (item) {
+                        is SessionExerciseListItem.Single -> item.line.entry.id
+                        is SessionExerciseListItem.Combo ->
+                            "combo_${item.first.entry.id}_${item.second.entry.id}"
                     }
-                val completedPair = sessionCompletedCardColors()
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors =
-                        if (done) {
-                            CardDefaults.cardColors(
-                                containerColor = completedPair.first,
-                                contentColor = completedPair.second,
-                            )
-                        } else {
-                            CardDefaults.cardColors(
-                                containerColor = sessionInProgressCardBackground(),
-                            )
-                        },
-                ) {
-                    Box(Modifier.fillMaxWidth()) {
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    start = 16.dp,
-                                    end = 52.dp,
-                                    top = 10.dp,
-                                    bottom = 10.dp,
-                                ),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                },
+            ) { item ->
+                when (item) {
+                    is SessionExerciseListItem.Single -> {
+                        val line = item.line
+                        val def = line.exercise
+                        val muscles = MuscleGroup.fromStorageList(def.muscleGroupsCsv)
+                            .sortedByFrenchLabel()
+                            .joinToString { it.labelFr }
+                        val sessionActive = session?.endTimeMillis == null
+                        val done = line.entry.doneInSession
+                        val hasAtLeastOneCompletedSet =
+                            completedSetsPrefixCount(
+                                line.entry.completedSetsMask,
+                                line.exercise.sets,
+                            ) > 0
+                        val plannedSets = def.sets.coerceAtLeast(1)
+                        val performedSetsForDisplay =
+                            line.entry.perfSets
+                                ?: completedSetsPrefixCount(
+                                    line.entry.completedSetsMask,
+                                    def.sets,
+                                )
+                        val prescriptionLine =
+                            if (done && performedSetsForDisplay in 1 until plannedSets) {
+                                def.prescriptionSummaryShort(setsOverride = performedSetsForDisplay)
+                            } else {
+                                def.prescriptionSummaryShort()
+                            }
+                        val completedPair = sessionCompletedCardColors()
+                        val canOfferCombine =
+                            sessionActive &&
+                                !done &&
+                                line.entry.comboGroupId == null &&
+                                exercises.flattenSessionLines().any { other ->
+                                    other.entry.id != line.entry.id &&
+                                        other.entry.comboGroupId == null &&
+                                        !other.entry.doneInSession
+                                }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors =
+                                if (done) {
+                                    CardDefaults.cardColors(
+                                        containerColor = completedPair.first,
+                                        contentColor = completedPair.second,
+                                    )
+                                } else {
+                                    CardDefaults.cardColors(
+                                        containerColor = sessionInProgressCardBackground(),
+                                    )
+                                },
                         ) {
-                            ExerciseCardInfoContent(
-                                name = def.name,
-                                notes = def.notes,
-                                onNotesClick = { exerciseNoteDialog = def.notes },
-                                exerciseTypeLabel = def.exerciseTypeLabelFr(),
-                                prescriptionLine = prescriptionLine,
-                                intensityLine = def.intensitySummary(),
-                                equipment = def.equipment,
-                                musclesLine = muscles,
-                                showRestBetweenSets = def.showsRestOnCard(),
-                                restBetweenSetsSeconds = def.restBetweenSetsSeconds,
-                                sessionSetProgress =
-                                    if (sessionActive && !done) {
-                                        SessionSetProgressUi(
-                                            plannedSets = def.sets.coerceAtLeast(1).coerceAtMost(64),
-                                            completedMask = line.entry.completedSetsMask,
-                                            onSetClick = { idx ->
-                                                vm.onExerciseSetClicked(line.entry.id, idx)
+                            Box(Modifier.fillMaxWidth()) {
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            start = 16.dp,
+                                            end = 52.dp,
+                                            top = 10.dp,
+                                            bottom = 10.dp,
+                                        ),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    ExerciseCardInfoContent(
+                                        name = def.name,
+                                        notes = def.notes,
+                                        onNotesClick = { exerciseNoteDialog = def.notes },
+                                        exerciseTypeLabel = def.exerciseTypeLabelFr(),
+                                        prescriptionLine = prescriptionLine,
+                                        intensityLine = def.intensitySummary(),
+                                        equipment = def.equipment,
+                                        musclesLine = muscles,
+                                        showRestBetweenSets = def.showsRestOnCard(),
+                                        restBetweenSetsSeconds = def.restBetweenSetsSeconds,
+                                        sessionSetProgress =
+                                            if (sessionActive && !done) {
+                                                SessionSetProgressUi(
+                                                    plannedSets = def.sets.coerceAtLeast(1).coerceAtMost(64),
+                                                    completedMask = line.entry.completedSetsMask,
+                                                    onSetClick = { idx ->
+                                                        vm.onExerciseSetClicked(line.entry.id, idx)
+                                                    },
+                                                )
+                                            } else {
+                                                null
                                             },
+                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                    ) {
+                                        if (!done) {
+                                            Text(
+                                                text = "Modifier",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.clickable { onEditExercise(line.entry.id) },
+                                            )
+                                        }
+                                        if (canOfferCombine) {
+                                            Text(
+                                                text = stringResource(R.string.session_combine_with),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.clickable {
+                                                    combinePickerSourceId = line.entry.id
+                                                },
+                                            )
+                                        }
+                                        Text(
+                                            text = "Supprimer",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.clickable { deleteTarget = line.entry.id },
                                         )
-                                    } else {
-                                        null
-                                    },
-                            )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            ) {
-                                if (!done) {
-                                    Text(
-                                        text = "Modifier",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.clickable { onEditExercise(line.entry.id) },
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { vm.setExerciseDone(line.entry.id, !line.entry.doneInSession) },
+                                    enabled = done || hasAtLeastOneCompletedSet,
+                                    modifier = Modifier.align(Alignment.TopEnd),
+                                ) {
+                                    Icon(
+                                        imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
+                                        contentDescription = when {
+                                            done -> "Dévalider l’exercice"
+                                            hasAtLeastOneCompletedSet -> "Valider l’exercice"
+                                            else -> "Cochez au moins une série pour valider l’exercice"
+                                        },
+                                        tint = if (done) {
+                                            exerciseDoneCheckIconTint()
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                     )
                                 }
-                                Text(
-                                    text = "Supprimer",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.clickable { deleteTarget = line.entry.id },
-                                )
                             }
                         }
-                        IconButton(
-                            onClick = { vm.setExerciseDone(line.entry.id, !line.entry.doneInSession) },
-                            enabled = done || hasAtLeastOneCompletedSet,
-                            modifier = Modifier.align(Alignment.TopEnd),
-                        ) {
-                            Icon(
-                                imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
-                                contentDescription = when {
-                                    done -> "Dévalider l’exercice"
-                                    hasAtLeastOneCompletedSet -> "Valider l’exercice"
-                                    else -> "Cochez au moins une série pour valider l’exercice"
-                                },
-                                tint = if (done) {
-                                    exerciseDoneCheckIconTint()
+                    }
+
+                    is SessionExerciseListItem.Combo -> {
+                        val first = item.first
+                        val second = item.second
+                        val defA = first.exercise
+                        val defB = second.exercise
+                        val musclesA = MuscleGroup.fromStorageList(defA.muscleGroupsCsv)
+                            .sortedByFrenchLabel()
+                            .joinToString { it.labelFr }
+                        val musclesB = MuscleGroup.fromStorageList(defB.muscleGroupsCsv)
+                            .sortedByFrenchLabel()
+                            .joinToString { it.labelFr }
+                        val sessionActive = session?.endTimeMillis == null
+                        val bothDone =
+                            first.entry.doneInSession && second.entry.doneInSession
+                        val setsA = defA.sets.coerceAtLeast(1).coerceAtMost(64)
+                        val setsB = defB.sets.coerceAtLeast(1).coerceAtMost(64)
+                        val kA = completedSetsPrefixCount(first.entry.completedSetsMask, setsA)
+                        val kB = completedSetsPrefixCount(second.entry.completedSetsMask, setsB)
+                        val comboStepsDone =
+                            combinedSessionStepsCompleted(kA, kB, setsA, setsB)
+                        val hasComboProgress = comboStepsDone > 0
+                        val plannedA = defA.sets.coerceAtLeast(1)
+                        val plannedB = defB.sets.coerceAtLeast(1)
+                        val performedA =
+                            first.entry.perfSets
+                                ?: completedSetsPrefixCount(first.entry.completedSetsMask, defA.sets)
+                        val performedB =
+                            second.entry.perfSets
+                                ?: completedSetsPrefixCount(second.entry.completedSetsMask, defB.sets)
+                        val prescriptionA =
+                            if (first.entry.doneInSession && performedA in 1 until plannedA) {
+                                defA.prescriptionSummaryShort(setsOverride = performedA)
+                            } else {
+                                defA.prescriptionSummaryShort()
+                            }
+                        val prescriptionB =
+                            if (second.entry.doneInSession && performedB in 1 until plannedB) {
+                                defB.prescriptionSummaryShort(setsOverride = performedB)
+                            } else {
+                                defB.prescriptionSummaryShort()
+                            }
+                        val completedPair = sessionCompletedCardColors()
+                        val maxComboSets = max(setsA, setsB)
+                        val comboMask = completedPrefixMask(comboStepsDone, maxComboSets)
+                        val comboRestSec =
+                            max(defA.restBetweenSetsSeconds, defB.restBetweenSetsSeconds)
+                        val showComboRest =
+                            comboRestSec > 0 &&
+                                (defA.showsRestOnCard() || defB.showsRestOnCard())
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors =
+                                if (bothDone) {
+                                    CardDefaults.cardColors(
+                                        containerColor = completedPair.first,
+                                        contentColor = completedPair.second,
+                                    )
                                 } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                    CardDefaults.cardColors(
+                                        containerColor = sessionInProgressCardBackground(),
+                                    )
                                 },
-                            )
+                        ) {
+                            Box(Modifier.fillMaxWidth()) {
+                                Column(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            start = 16.dp,
+                                            end = 52.dp,
+                                            top = 10.dp,
+                                            bottom = 10.dp,
+                                        ),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.session_combo_section_title),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    ExerciseCardInfoContent(
+                                        name = defA.name,
+                                        notes = defA.notes,
+                                        onNotesClick = { exerciseNoteDialog = defA.notes },
+                                        exerciseTypeLabel = defA.exerciseTypeLabelFr(),
+                                        prescriptionLine = prescriptionA,
+                                        intensityLine = defA.intensitySummary(),
+                                        equipment = defA.equipment,
+                                        musclesLine = musclesA,
+                                        showRestBetweenSets = false,
+                                        restBetweenSetsSeconds = defA.restBetweenSetsSeconds,
+                                        sessionSetProgress = null,
+                                    )
+                                    ExerciseCardInfoContent(
+                                        name = defB.name,
+                                        notes = defB.notes,
+                                        onNotesClick = { exerciseNoteDialog = defB.notes },
+                                        exerciseTypeLabel = defB.exerciseTypeLabelFr(),
+                                        prescriptionLine = prescriptionB,
+                                        intensityLine = defB.intensitySummary(),
+                                        equipment = defB.equipment,
+                                        musclesLine = musclesB,
+                                        showRestBetweenSets = false,
+                                        restBetweenSetsSeconds = defB.restBetweenSetsSeconds,
+                                        sessionSetProgress = null,
+                                    )
+                                    if (sessionActive && !bothDone && maxComboSets > 0) {
+                                        SessionSetProgressChips(
+                                            sessionSetProgress = SessionSetProgressUi(
+                                                plannedSets = maxComboSets,
+                                                completedMask = comboMask,
+                                                onSetClick = { idx ->
+                                                    vm.onComboSetClicked(
+                                                        first.entry.id,
+                                                        second.entry.id,
+                                                        idx,
+                                                    )
+                                                },
+                                            ),
+                                            prescriptionLineAbove = null,
+                                        )
+                                    }
+                                    if (showComboRest) {
+                                        Text(
+                                            text = stringResource(
+                                                R.string.session_rest_between_rounds,
+                                                comboRestSec,
+                                            ),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        if (!bothDone) {
+                                            Text(
+                                                text = "Modifier — ${defA.name}",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.clickable {
+                                                    onEditExercise(first.entry.id)
+                                                },
+                                            )
+                                            Text(
+                                                text = "Modifier — ${defB.name}",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.clickable {
+                                                    onEditExercise(second.entry.id)
+                                                },
+                                            )
+                                        }
+                                        Text(
+                                            text = "Supprimer — ${defA.name}",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.clickable {
+                                                deleteTarget = first.entry.id
+                                            },
+                                        )
+                                        Text(
+                                            text = "Supprimer — ${defB.name}",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.clickable {
+                                                deleteTarget = second.entry.id
+                                            },
+                                        )
+                                        if (sessionActive && !bothDone) {
+                                            Text(
+                                                text = stringResource(R.string.session_separate_combo),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.clickable {
+                                                    vm.splitSessionCombo(first.entry.id)
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                IconButton(
+                                    onClick = {
+                                        vm.setComboExerciseDone(
+                                            first.entry.id,
+                                            second.entry.id,
+                                            !bothDone,
+                                        )
+                                    },
+                                    enabled = bothDone || hasComboProgress,
+                                    modifier = Modifier.align(Alignment.TopEnd),
+                                ) {
+                                    Icon(
+                                        imageVector =
+                                            if (bothDone) {
+                                                Icons.Filled.CheckCircle
+                                            } else {
+                                                Icons.Outlined.CheckCircle
+                                            },
+                                        contentDescription = when {
+                                            bothDone -> "Dévalider la combinaison"
+                                            hasComboProgress -> "Valider la combinaison"
+                                            else -> "Cochez au moins un tour pour valider"
+                                        },
+                                        tint = if (bothDone) {
+                                            exerciseDoneCheckIconTint()
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -542,6 +808,55 @@ fun SessionDetailScreen(
         )
     }
 
+    val combineSource = combinePickerSourceId
+    if (combineSource != null) {
+        val candidates =
+            exercises.flattenSessionLines().filter { line ->
+                line.entry.id != combineSource &&
+                    line.entry.comboGroupId == null &&
+                    !line.entry.doneInSession
+            }
+        AlertDialog(
+            onDismissRequest = { combinePickerSourceId = null },
+            title = { Text(stringResource(R.string.session_combine_pick_title)) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (candidates.isEmpty()) {
+                        Text(
+                            stringResource(R.string.session_combine_no_candidate),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    } else {
+                        candidates.forEach { line ->
+                            Text(
+                                line.exercise.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        vm.combineSessionExercises(combineSource, line.entry.id)
+                                        combinePickerSourceId = null
+                                    }
+                                    .padding(vertical = 10.dp),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { combinePickerSourceId = null }) {
+                    Text("Annuler")
+                }
+            },
+        )
+    }
+
     if (showBlueprintPicker) {
         BlueprintLibraryPickerDialog(
             exerciseBlueprints = exerciseBlueprints,
@@ -564,3 +879,11 @@ fun SessionDetailScreen(
         )
     }
 }
+
+private fun List<SessionExerciseListItem>.flattenSessionLines(): List<SessionExerciseLine> =
+    flatMap { item ->
+        when (item) {
+            is SessionExerciseListItem.Single -> listOf(item.line)
+            is SessionExerciseListItem.Combo -> listOf(item.first, item.second)
+        }
+    }

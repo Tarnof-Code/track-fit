@@ -190,7 +190,7 @@ class SessionDetailViewModel(
     val session = repo.observeSession(sessionId)
         .stateIn(viewModelScope, WhileSubscribed5s, null)
 
-    val exercises = repo.observeSessionExerciseLines(sessionId)
+    val exercises = repo.observeSessionExerciseListItems(sessionId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     val exerciseBlueprints = repo.observeExerciseBlueprints()
@@ -238,6 +238,25 @@ class SessionDetailViewModel(
         }
     }
 
+    fun combineSessionExercises(entryIdA: Long, entryIdB: Long) {
+        viewModelScope.launch {
+            repo.combineSessionExercises(entryIdA, entryIdB)
+        }
+    }
+
+    fun splitSessionCombo(entryId: Long) {
+        viewModelScope.launch {
+            repo.splitSessionExerciseCombo(entryId)
+        }
+    }
+
+    fun setComboExerciseDone(entryIdA: Long, entryIdB: Long, done: Boolean) {
+        viewModelScope.launch {
+            repo.updateExerciseDoneInSession(entryIdA, done)
+            repo.updateExerciseDoneInSession(entryIdB, done)
+        }
+    }
+
     fun deleteSession(onDone: () -> Unit) {
         viewModelScope.launch {
             repo.deleteSession(sessionId)
@@ -260,16 +279,18 @@ class SessionDetailViewModel(
     /** Bascule une série ; lance le repos plein écran si besoin (sauf après la dernière série). */
     fun onExerciseSetClicked(entryId: Long, setIndex: Int) {
         viewModelScope.launch {
-            val line = exercises.value.find { it.entry.id == entryId } ?: return@launch
+            val entry = repo.getExercise(entryId) ?: return@launch
+            if (entry.sessionId != sessionId) return@launch
+            if (entry.comboGroupId != null) return@launch
             if (session.value?.endTimeMillis != null) return@launch
-            if (line.entry.doneInSession) return@launch
-            val bp = line.exercise
+            if (entry.doneInSession) return@launch
+            val bp = repo.getExerciseBlueprint(entry.exerciseId) ?: return@launch
             val sets = bp.sets.coerceAtLeast(1).coerceAtMost(64)
             if (setIndex !in 0 until sets) return@launch
-            val old = line.entry.completedSetsMask
+            val old = entry.completedSetsMask
             val kBefore = completedSetsPrefixCount(old, sets)
             val newMask = nextMaskSequentialSetToggle(setIndex, old, sets) ?: return@launch
-            val turningOn = setIndex == kBefore && kBefore < sets
+            val turningOn = setIndex == kBefore
             repo.updateExerciseCompletedSetsMask(entryId, newMask)
             if (!turningOn) return@launch
             val lastSetIndex = sets - 1
@@ -277,6 +298,15 @@ class SessionDetailViewModel(
                 _restOverlayEndElapsedMs.value =
                     SystemClock.elapsedRealtime() + bp.restBetweenSetsSeconds * 1000L
             }
+        }
+    }
+
+    fun onComboSetClicked(entryIdA: Long, entryIdB: Long, setIndex: Int) {
+        viewModelScope.launch {
+            if (session.value?.endTimeMillis != null) return@launch
+            val restSec = repo.toggleComboSessionSet(entryIdA, entryIdB, setIndex) ?: return@launch
+            _restOverlayEndElapsedMs.value =
+                SystemClock.elapsedRealtime() + restSec * 1000L
         }
     }
 

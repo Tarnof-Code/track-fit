@@ -21,7 +21,7 @@ Document de **contexte global** pour l’assistant (et les humains). À **relire
 | Build | Gradle **9.3.1** (wrapper), **KSP** **2.3.6** |
 | UI | Jetpack **Compose**, **Material 3** |
 | Navigation | Navigation Compose (`AppNav.kt`) |
-| Persistance | **Room** 2.8.4 (schéma DB **18**), génération via KSP |
+| Persistance | **Room** 2.8.4 (schéma DB **19**), génération via KSP |
 | Package | `com.sport.gymtracker` |
 | SDK | `minSdk` **26**, `compileSdk` / `targetSdk` **35** |
 
@@ -45,7 +45,7 @@ app/src/main/java/com/sport/gymtracker/
 │   ├── theme/                    # Theme, couleurs, typo
 │   └── viewmodel/                # ViewModels + factories
 ├── data/
-│   ├── GymRepository.kt, StatisticsOverview.kt
+│   ├── GymRepository.kt (`SessionExerciseLine`, `SessionExerciseListItem`, combinaisons séance), StatisticsOverview.kt
 │   ├── backup/ # Export / import JSON (GymDataJson, DataImport, matching blueprints)
 │   └── local/                    # AppDatabase, entités, DAOs, migrations (voir ci‑dessous)
 ├── util/                         # ex. FrenchDateTime.kt
@@ -55,14 +55,14 @@ app/src/main/java/com/sport/gymtracker/
     └── OnAirLaDefenseCatalog.kt  # Catalogue d’équipements (contexte métier)
 ```
 
-**Migrations Room** : historique principal dans `DatabaseMigrations.kt` (`MIGRATION_1_2` … `MIGRATION_13_14`) ; migrations récentes aussi dans `Migration14To15.kt` … `Migration17To18.kt` (enregistrées dans `AppDatabase`).
+**Migrations Room** : historique principal dans `DatabaseMigrations.kt` (`MIGRATION_1_2` … `MIGRATION_13_14`) ; migrations récentes aussi dans `Migration14To15.kt` … `Migration18To19.kt` (enregistrées dans `AppDatabase`).
 
 **Navigation principale** (barre du bas) : Accueil, **Séances**, **Modèles**, Stats, **Données** (sauvegarde / restauration).  
 **Routes secondaires** (sans barre) : détail séance, édition exercice de séance, détail modèle, édition exercice de modèle, bibliothèque d’exercices, éditeur de blueprint, **progression par exercice** (liste + détail par blueprint).
 
-**Données Room** (`AppDatabase`) : `WorkoutSessionEntity`, `ExerciseEntryEntity`, `WorkoutTemplateEntity`, `TemplateExerciseEntity`, `ExerciseBlueprintEntity` — version schéma **18**, chaîne **MIGRATION_1_2** … **MIGRATION_17_18** (ex. **16→17** : notes sur blueprint ; **17→18** : `completedSetsMask` sur les entrées d’exercice en séance).
+**Données Room** (`AppDatabase`) : `WorkoutSessionEntity`, `ExerciseEntryEntity`, `WorkoutTemplateEntity`, `TemplateExerciseEntity`, `ExerciseBlueprintEntity` — version schéma **19**, chaîne **MIGRATION_1_2** … **MIGRATION_18_19** (ex. **16→17** : notes sur blueprint ; **17→18** : `completedSetsMask` sur les entrées d’exercice en séance ; **18→19** : `comboGroupId` sur les entrées pour combinaisons en séance).
 
-**Note.** Le builder appelle encore `fallbackToDestructiveMigration()` : acceptable en dev, **à revoir avant une release grand public** (perte de données si migration manquante).
+**Note.** Le builder utilise `fallbackToDestructiveMigration(dropAllTables = true)` (API Room 2.7+) : en cas de migration absente, la base est recréée (**perte de données**). Pour une release grand public, s’appuyer sur des migrations complètes et éventuellement retirer ou restreindre ce repli.
 
 ---
 
@@ -71,6 +71,7 @@ app/src/main/java/com/sport/gymtracker/
 ### Application
 
 - Parcours **accueil** → création / ouverture de **séance**, **liste des séances**, **détail séance** avec exercices, édition d’exercice, timer de repos entre séries, suivi des séries complétées (masque en base).
+- **Combinaisons en séance** : deux entrées peuvent partager un `comboGroupId` (`ExerciseEntryEntity`) ; une carte regroupe les deux exercices, une rangée de puces représente les **tours** (série de chaque exercice quand elle existe, puis séries restantes du plus long) ; repos entre tours = `max` des repos des deux blueprints ; combine / séparer depuis `SessionDetailScreen` ; liste d’affichage via `SessionExerciseListItem` + `observeSessionExerciseListItems` dans `GymRepository` ; logique de masques dans `SessionComboSets.kt`. **Limite** : enregistrer une séance comme **modèle** ne reproduit pas encore les paires (une ligne par exercice dans le modèle).
 - **Modèles** d’entraînement : liste, détail, ajout / édition d’exercices de modèle.
 - **Bibliothèque d’exercices** (blueprints) + écran d’édition blueprint (notes libres sur la fiche).
 - **Statistiques** (écran dédié + logique `StatisticsOverview` / composants de graphiques).
@@ -95,14 +96,15 @@ app/src/main/java/com/sport/gymtracker/
 | Zone | Idées |
 |------|--------|
 | **Qualité** | Tests unitaires (domain, repository), tests UI Compose sur flux critiques. |
-| **Prod** | Retirer ou conditionner `fallbackToDestructiveMigration` ; pipeline release (ProGuard/R8 si besoin). |
+| **Prod** | Réduire la dépendance au repli destructif (`fallbackToDestructiveMigration`) une fois les migrations garanties ; pipeline release (ProGuard/R8 si besoin). |
 | **i18n** | Externaliser toutes les chaînes vers `strings.xml` / ressources si des littéraux restent dans le code. |
 | **Données** | Améliorer / durcir le flux import-export (validation, conflits, UX) ; sync cloud seulement si besoin futur — cœur toujours local. |
+| **Modèles** | Persister les combinaisons (`comboGroupId` ou équivalent) lors de « enregistrer la séance comme modèle » / instanciation depuis le modèle. |
 | **Store** | Fiche Play Console, politique de confidentialité, captures, signing `release`. |
 | **Accessibilité** | Content descriptions, tailles tactiles, contrastes. |
 | **CI** | Build Gradle sur push (GitHub Actions, etc.) si le dépôt devient distant. |
 
-**Dernière mise à jour mémo** : 17 avril 2026 — stack ci‑dessus ; **Kotlin intégré** + KSP **2.3.6** ; `gradle.properties` (**`useConstraints=false`** et nettoyage options AGP dépréciées).
+**Dernière mise à jour mémo** : 17 avril 2026 — schéma Room **19** / combinaisons en séance ; `fallbackToDestructiveMigration(dropAllTables = true)` ; stack ci‑dessus ; **Kotlin intégré** + KSP **2.3.6** ; `gradle.properties` (**`useConstraints=false`** et nettoyage options AGP dépréciées).
 
 ---
 

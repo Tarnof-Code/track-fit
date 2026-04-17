@@ -40,6 +40,11 @@ data class ExerciseEntryEntity(
     val doneInSession: Boolean = false,
     /** Séries cochées pendant la séance (bit i = série i+1). */
     val completedSetsMask: Long = 0L,
+    /**
+     * Si deux entrées d’une même séance ont la même valeur non nulle, elles forment une combinaison
+     * (même tour de séries + repos commun entre tours).
+     */
+    val comboGroupId: Long? = null,
     /** Renseigné à la fin de la séance si [doneInSession] : copie de la prescription pour l’historique. */
     val perfCapturedAtMillis: Long? = null,
     val perfWorkMode: String? = null,
