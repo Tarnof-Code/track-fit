@@ -1,6 +1,7 @@
 package com.sport.gymtracker.ui.viewmodel
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -27,10 +28,10 @@ import com.sport.gymtracker.domain.MuscleGroup
 import com.sport.gymtracker.domain.SkillLevel
 import com.sport.gymtracker.domain.recommendedRestSeconds
 import com.sport.gymtracker.requireGymRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -196,8 +197,16 @@ class SessionDetailViewModel(
     val exerciseBlueprints = repo.observeExerciseBlueprints()
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
-    private val _restCountdownRequest = MutableSharedFlow<Int>(extraBufferCapacity = 8)
-    val restCountdownRequest = _restCountdownRequest.asSharedFlow()
+    /**
+     * Fin du repos (SystemClock.elapsedRealtime), ou null si aucun overlay.
+     * Conservé dans le ViewModel pour survivre à la rotation de l’écran.
+     */
+    private val _restOverlayEndElapsedMs = MutableStateFlow<Long?>(null)
+    val restOverlayEndElapsedMs: StateFlow<Long?> = _restOverlayEndElapsedMs.asStateFlow()
+
+    fun dismissRestOverlay() {
+        _restOverlayEndElapsedMs.value = null
+    }
 
     fun addExerciseFromBlueprint(blueprintId: Long) {
         viewModelScope.launch {
@@ -266,7 +275,8 @@ class SessionDetailViewModel(
             if (!turningOn) return@launch
             val lastSetIndex = sets - 1
             if (setIndex < lastSetIndex && bp.restBetweenSetsSeconds > 0) {
-                _restCountdownRequest.emit(bp.restBetweenSetsSeconds)
+                _restOverlayEndElapsedMs.value =
+                    SystemClock.elapsedRealtime() + bp.restBetweenSetsSeconds * 1000L
             }
         }
     }

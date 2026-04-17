@@ -2,6 +2,7 @@ package com.sport.gymtracker.ui.components
 
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -24,7 +25,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.ceil
 import kotlinx.coroutines.delay
+
+/** Secondes restantes affichées (arrondi supérieur tant qu’il reste du temps). */
+private fun remainingRestSeconds(endElapsedRealtimeMs: Long): Int {
+    val ms = endElapsedRealtimeMs - SystemClock.elapsedRealtime()
+    if (ms <= 0) return 0
+    return ceil(ms / 1000.0).toInt()
+}
 
 private fun formatRestCountdown(seconds: Int): String {
     val m = seconds / 60
@@ -51,22 +60,21 @@ private suspend fun playRestFinishedSound() {
  */
 @Composable
 fun FullscreenRestCountdownOverlay(
-    totalSeconds: Int,
+    endElapsedRealtimeMs: Long,
     onFinished: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (totalSeconds <= 0) return
+    var remaining by remember(endElapsedRealtimeMs) {
+        mutableIntStateOf(remainingRestSeconds(endElapsedRealtimeMs))
+    }
 
-    var remaining by remember(totalSeconds) { mutableIntStateOf(totalSeconds) }
-
-    LaunchedEffect(totalSeconds) {
-        var r = totalSeconds
-        remaining = r
-        while (r > 0) {
-            delay(1000)
-            r--
+    LaunchedEffect(endElapsedRealtimeMs) {
+        while (true) {
+            val r = remainingRestSeconds(endElapsedRealtimeMs)
             remaining = r
+            if (r <= 0) break
+            delay(1000)
         }
         playRestFinishedSound()
         onFinished()

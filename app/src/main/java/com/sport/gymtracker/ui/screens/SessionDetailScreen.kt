@@ -97,19 +97,13 @@ fun SessionDetailScreen(
     val snackbarScope = rememberCoroutineScope()
     var blueprintPickerSelection by remember { mutableStateOf<List<Long>>(emptyList()) }
     var exerciseNoteDialog by remember { mutableStateOf<String?>(null) }
-    var restOverlaySeconds by remember { mutableStateOf<Int?>(null) }
+    val restOverlayEndElapsedMs by vm.restOverlayEndElapsedMs.collectAsState()
     val hasValidatedExercise = exercises.any { it.entry.doneInSession }
     val hasPartialExerciseBlockingEnd =
         exercises.any { line ->
             exerciseEntryBlocksSessionEnd(line.entry, line.exercise.sets)
         }
     val canEndSession = hasValidatedExercise && !hasPartialExerciseBlockingEnd
-
-    LaunchedEffect(Unit) {
-        vm.restCountdownRequest.collect { sec ->
-            if (sec > 0) restOverlaySeconds = sec
-        }
-    }
 
     LaunchedEffect(showBlueprintPicker) {
         if (showBlueprintPicker) {
@@ -337,11 +331,11 @@ fun SessionDetailScreen(
         }
     }
 
-        restOverlaySeconds?.let { sec ->
+        restOverlayEndElapsedMs?.let { endMs ->
             FullscreenRestCountdownOverlay(
-                totalSeconds = sec,
-                onFinished = { restOverlaySeconds = null },
-                onStop = { restOverlaySeconds = null },
+                endElapsedRealtimeMs = endMs,
+                onFinished = { vm.dismissRestOverlay() },
+                onStop = { vm.dismissRestOverlay() },
             )
         }
     }
