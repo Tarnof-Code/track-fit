@@ -12,21 +12,25 @@ private fun levelOrReglage(rowResistance: String?, machineLevel: Int?): String? 
     rowResistance?.trim()?.takeIf { it.isNotEmpty() }
         ?: machineLevel?.toString()
 
-fun ExerciseBlueprintEntity.prescriptionSummaryShort(): String {
+/**
+ * @param setsOverride si non null, remplace le nombre de séries affiché (ex. séries réellement faites en séance).
+ */
+fun ExerciseBlueprintEntity.prescriptionSummaryShort(setsOverride: Int? = null): String {
     val mode = ExerciseWorkMode.fromStorage(workMode)
+    val setCount = (setsOverride ?: sets).coerceAtLeast(1)
     return buildString {
         when (mode) {
             ExerciseWorkMode.REPS_LOAD -> {
-                append("${sets} série(s)")
+                append("$setCount série(s)")
                 repsPerSet?.let { append(" × $it reps") }
             }
             ExerciseWorkMode.TIME_DURATION -> when {
                 durationSecondsPerSet != null -> {
-                    append("${sets} série(s)")
+                    append("$setCount série(s)")
                     append(" × ${durationSecondsPerSet}s")
                 }
                 durationMinutesPerSet != null -> {
-                    append("${sets} série(s)")
+                    append("$setCount série(s)")
                     append(" × ${durationMinutesPerSet} min")
                 }
                 else -> {}

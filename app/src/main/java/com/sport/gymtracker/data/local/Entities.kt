@@ -55,10 +55,16 @@ data class ExerciseEntryEntity(
 fun ExerciseEntryEntity.withPerformanceSnapshotFromBlueprint(
     blueprint: ExerciseBlueprintEntity,
     capturedAtMillis: Long,
+    /** Si renseigné, nombre de séries réellement effectuées (sinon la prescription du blueprint). */
+    performedSetsCount: Int? = null,
 ): ExerciseEntryEntity = copy(
     perfCapturedAtMillis = capturedAtMillis,
     perfWorkMode = blueprint.workMode,
-    perfSets = blueprint.sets,
+    perfSets =
+        (performedSetsCount ?: blueprint.sets).coerceIn(
+            0,
+            blueprint.sets.coerceAtLeast(1),
+        ),
     perfRepsPerSet = blueprint.repsPerSet,
     perfDurationSecondsPerSet = blueprint.durationSecondsPerSet,
     perfDurationMinutesPerSet = blueprint.durationMinutesPerSet,

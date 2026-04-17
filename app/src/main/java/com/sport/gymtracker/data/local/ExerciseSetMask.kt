@@ -42,12 +42,3 @@ fun nextMaskSequentialSetToggle(setIndex: Int, mask: Long, totalSets: Int): Long
 
 fun canToggleExerciseSetSequentially(setIndex: Int, mask: Long, totalSets: Int): Boolean =
     nextMaskSequentialSetToggle(setIndex, mask, totalSets) != null
-
-/**
- * Exercice non validé, avec au moins une série cochée mais pas toutes : la séance ne peut pas être terminée.
- */
-fun exerciseEntryBlocksSessionEnd(entry: ExerciseEntryEntity, blueprintSets: Int): Boolean {
-    if (entry.doneInSession) return false
-    if (entry.completedSetsMask == 0L) return false
-    return entry.completedSetsMask != fullExerciseSetsMask(blueprintSets)
-}

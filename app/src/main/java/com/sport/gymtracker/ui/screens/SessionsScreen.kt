@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,21 +12,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -103,149 +95,110 @@ fun SessionsScreen(
     val templateRows by vm.templateRows.collectAsState()
     var showNew by remember { mutableStateOf(false) }
 
-    var rowMenuSessionId by remember { mutableStateOf<Long?>(null) }
-    var deleteSessionId by remember { mutableStateOf<Long?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val snackScope = rememberCoroutineScope()
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (sessions.any { it.endTimeMillis == null }) {
-                        snackScope.launch {
-                            snackbarHostState.showSnackbar(
-                                "Une séance est déjà en cours. Terminez-la avant d’en démarrer une nouvelle.",
-                            )
-                        }
-                    } else {
-                        showNew = true
-                    }
-                },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Séance") },
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 80.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 16.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("Séances", style = MaterialTheme.typography.headlineMedium)
+            item {
+                Text(
+                    "Séances",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
                 Text(
                     "Un modèle contient tout un programme. Vous pouvez modifier le contenu des exercices",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(sessions, key = { it.id }) { s ->
-                    val completed = s.endTimeMillis != null
-                    val completedPair = sessionCompletedCardColors()
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors =
-                            if (completed) {
-                                CardDefaults.cardColors(
-                                    containerColor = completedPair.first,
-                                    contentColor = completedPair.second,
-                                )
-                            } else {
-                                CardDefaults.cardColors(
-                                    containerColor = sessionInProgressCardBackground(),
-                                )
-                            },
+            items(sessions, key = { it.id }) { s ->
+                val completed = s.endTimeMillis != null
+                val completedPair = sessionCompletedCardColors()
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSessionClick(s.id) },
+                    colors =
+                        if (completed) {
+                            CardDefaults.cardColors(
+                                containerColor = completedPair.first,
+                                contentColor = completedPair.second,
+                            )
+                        } else {
+                            CardDefaults.cardColors(
+                                containerColor = sessionInProgressCardBackground(),
+                            )
+                        },
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .then(
-                                        if (!completed) {
-                                            Modifier.clickable { onSessionClick(s.id) }
-                                        } else {
-                                            Modifier
-                                        },
-                                    )
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(s.title, style = MaterialTheme.typography.titleMedium)
-                                if (completed) {
-                                    val end = s.endTimeMillis!!
-                                    Text(
-                                        "${formatSessionDayDateLineFr(s.startTimeMillis)} pendant ${formatDurationPendantCompactFr(end - s.startTimeMillis)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                } else {
-                                    Text(
-                                        "${formatSessionDayDateLineFr(s.startTimeMillis)} commencée à ${formatTimeHhMmFr(s.startTimeMillis)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                                if (completed) {
-                                    Text(
-                                        "Terminée",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                                    )
-                                } else {
-                                    Text(
-                                        "En cours",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = sessionInProgressAccent(),
-                                    )
-                                }
-                            }
-                            if (completed) {
-                                Box {
-                                    IconButton(onClick = { rowMenuSessionId = s.id }) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                                    }
-                                    DropdownMenu(
-                                        expanded = rowMenuSessionId == s.id,
-                                        onDismissRequest = { rowMenuSessionId = null },
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Modifier") },
-                                            onClick = {
-                                                rowMenuSessionId = null
-                                                onSessionClick(s.id)
-                                            },
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Supprimer") },
-                                            onClick = {
-                                                deleteSessionId = s.id
-                                                rowMenuSessionId = null
-                                            },
-                                        )
-                                    }
-                                }
-                            }
+                        Text(s.title, style = MaterialTheme.typography.titleMedium)
+                        if (completed) {
+                            val end = s.endTimeMillis!!
+                            Text(
+                                "${formatSessionDayDateLineFr(s.startTimeMillis)} pendant ${formatDurationPendantCompactFr(end - s.startTimeMillis)}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        } else {
+                            Text(
+                                "${formatSessionDayDateLineFr(s.startTimeMillis)} commencée à ${formatTimeHhMmFr(s.startTimeMillis)}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        if (completed) {
+                            Text(
+                                "Terminée",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                            )
+                        } else {
+                            Text(
+                                "En cours",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = sessionInProgressAccent(),
+                            )
                         }
                     }
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 88.dp),
+        )
+        ExtendedFloatingActionButton(
+            onClick = {
+                if (sessions.any { it.endTimeMillis == null }) {
+                    snackScope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Une séance est déjà en cours. Terminez-la avant d’en démarrer une nouvelle.",
+                        )
+                    }
+                } else {
+                    showNew = true
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            text = { Text("Séance") },
+        )
     }
 
     if (showNew) {
@@ -267,23 +220,4 @@ fun SessionsScreen(
         )
     }
 
-    val dsId = deleteSessionId
-    if (dsId != null) {
-        AlertDialog(
-            onDismissRequest = { deleteSessionId = null },
-            title = { Text("Supprimer cette séance ?") },
-            text = { Text("Tous les exercices enregistrés pour cette séance seront supprimés.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        vm.deleteSession(dsId)
-                        deleteSessionId = null
-                    },
-                ) { Text("Supprimer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteSessionId = null }) { Text("Annuler") }
-            },
-        )
-    }
 }

@@ -25,7 +25,7 @@ import com.sport.gymtracker.data.local.WorkoutSessionEntity
 import com.sport.gymtracker.data.local.WorkoutTemplateEntity
 import com.sport.gymtracker.data.local.toTemplatePlacement
 import com.sport.gymtracker.data.local.clearPerformanceSnapshot
-import com.sport.gymtracker.data.local.exerciseEntryBlocksSessionEnd
+import com.sport.gymtracker.data.local.completedSetsPrefixCount
 import com.sport.gymtracker.data.local.fullExerciseSetsMask
 import com.sport.gymtracker.data.local.withPerformanceSnapshotFromBlueprint
 import com.sport.gymtracker.domain.Difficulty
@@ -362,16 +362,20 @@ class GymRepository(private val db: AppDatabase) {
         val entries = exerciseDao.listForSession(sessionId)
         if (entries.isEmpty()) return
         if (entries.none { it.doneInSession }) return
-        for (e in entries) {
-            val bp = exerciseBlueprintDao.getById(e.exerciseId) ?: continue
-            if (exerciseEntryBlocksSessionEnd(e, bp.sets)) return
-        }
         val endMillis = System.currentTimeMillis()
         db.withTransaction {
             for (e in entries) {
                 if (!e.doneInSession) continue
                 val bp = exerciseBlueprintDao.getById(e.exerciseId) ?: continue
-                exerciseDao.update(e.withPerformanceSnapshotFromBlueprint(bp, endMillis))
+                val performed =
+                    completedSetsPrefixCount(e.completedSetsMask, bp.sets)
+                exerciseDao.update(
+                    e.withPerformanceSnapshotFromBlueprint(
+                        bp,
+                        endMillis,
+                        performedSetsCount = performed,
+                    ),
+                )
             }
             sessionDao.update(session.copy(endTimeMillis = endMillis))
         }
@@ -392,8 +396,9 @@ class GymRepository(private val db: AppDatabase) {
     }
 
     /**
-     * Bascule [ExerciseEntryEntity.doneInSession]. Si la séance est déjà terminée, enregistre ou efface
-     * l’instantané de performance (courbes de progression), en utilisant l’heure de fin de séance.
+     * Bascule [ExerciseEntryEntity.doneInSession]. En séance active : validation possible dès qu’au moins
+     * une série est cochée, sans compléter toutes les séries ni modifier [ExerciseEntryEntity.completedSetsMask].
+     * Séance terminée : enregistre ou efface l’instantané de performance (nombre de séries = préfixe coché).
      */
     suspend fun updateExerciseDoneInSession(entryId: Long, done: Boolean) {
         val entry = exerciseDao.getById(entryId) ?: return
@@ -402,23 +407,25 @@ class GymRepository(private val db: AppDatabase) {
         if (endMillis == null) {
             if (done) {
                 val bpDone = exerciseBlueprintDao.getById(entry.exerciseId) ?: return
-                val fullMaskRequired = fullExerciseSetsMask(bpDone.sets)
-                if (entry.completedSetsMask != fullMaskRequired) return
+                if (completedSetsPrefixCount(entry.completedSetsMask, bpDone.sets) == 0) return
             }
-            val bp = exerciseBlueprintDao.getById(entry.exerciseId)
-            val fullMask = bp?.let { fullExerciseSetsMask(it.sets) } ?: 0L
             exerciseDao.update(
                 entry.copy(
                     doneInSession = done,
-                    completedSetsMask = if (done) fullMask else entry.completedSetsMask,
+                    completedSetsMask = entry.completedSetsMask,
                 ),
             )
             return
         }
         if (done) {
             val bp = exerciseBlueprintDao.getById(entry.exerciseId) ?: return
+            val performed = completedSetsPrefixCount(entry.completedSetsMask, bp.sets)
             exerciseDao.update(
-                entry.copy(doneInSession = true).withPerformanceSnapshotFromBlueprint(bp, endMillis),
+                entry.copy(doneInSession = true).withPerformanceSnapshotFromBlueprint(
+                    bp,
+                    endMillis,
+                    performedSetsCount = performed,
+                ),
             )
         } else {
             exerciseDao.update(entry.copy(doneInSession = false).clearPerformanceSnapshot())

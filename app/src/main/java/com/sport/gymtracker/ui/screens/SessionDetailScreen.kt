@@ -45,6 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -56,8 +57,7 @@ import com.sport.gymtracker.domain.exerciseTypeLabelFr
 import com.sport.gymtracker.domain.intensitySummary
 import com.sport.gymtracker.domain.prescriptionSummaryShort
 import com.sport.gymtracker.domain.showsRestOnCard
-import com.sport.gymtracker.data.local.exerciseEntryBlocksSessionEnd
-import com.sport.gymtracker.data.local.fullExerciseSetsMask
+import com.sport.gymtracker.data.local.completedSetsPrefixCount
 import com.sport.gymtracker.ui.components.AddExerciseDropdownFab
 import com.sport.gymtracker.ui.components.BlueprintLibraryPickerDialog
 import com.sport.gymtracker.ui.components.ExerciseCardInfoContent
@@ -74,6 +74,8 @@ import com.sport.gymtracker.util.FrenchDateTime
 fun SessionDetailScreen(
     sessionId: Long,
     onBack: () -> Unit,
+    /** Après fin de séance (et éventuellement le dialogue « enregistrer comme modèle »). */
+    onSessionEnded: () -> Unit = {},
     onAddNewExercise: () -> Unit,
     onEditExercise: (Long) -> Unit,
 ) {
@@ -99,11 +101,7 @@ fun SessionDetailScreen(
     var exerciseNoteDialog by remember { mutableStateOf<String?>(null) }
     val restOverlayEndElapsedMs by vm.restOverlayEndElapsedMs.collectAsState()
     val hasValidatedExercise = exercises.any { it.entry.doneInSession }
-    val hasPartialExerciseBlockingEnd =
-        exercises.any { line ->
-            exerciseEntryBlocksSessionEnd(line.entry, line.exercise.sets)
-        }
-    val canEndSession = hasValidatedExercise && !hasPartialExerciseBlockingEnd
+    val canEndSession = hasValidatedExercise
 
     LaunchedEffect(showBlueprintPicker) {
         if (showBlueprintPicker) {
@@ -190,14 +188,6 @@ fun SessionDetailScreen(
                                     modifier = Modifier.padding(top = 12.dp),
                                 )
                             }
-                            hasPartialExerciseBlockingEnd -> {
-                                Text(
-                                    "Des exercices ont des séries commencées mais incomplètes. Terminez toutes les séries ou modifiez l’exercice (nombre de séries, etc.).",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 12.dp),
-                                )
-                            }
                             !hasValidatedExercise -> {
                                 Text(
                                     "Validez au moins un exercice pour pouvoir terminer la séance.",
@@ -231,8 +221,24 @@ fun SessionDetailScreen(
                     .joinToString { it.labelFr }
                 val sessionActive = session?.endTimeMillis == null
                 val done = line.entry.doneInSession
-                val allSeriesValidated =
-                    line.entry.completedSetsMask == fullExerciseSetsMask(line.exercise.sets)
+                val hasAtLeastOneCompletedSet =
+                    completedSetsPrefixCount(
+                        line.entry.completedSetsMask,
+                        line.exercise.sets,
+                    ) > 0
+                val plannedSets = def.sets.coerceAtLeast(1)
+                val performedSetsForDisplay =
+                    line.entry.perfSets
+                        ?: completedSetsPrefixCount(
+                            line.entry.completedSetsMask,
+                            def.sets,
+                        )
+                val prescriptionLine =
+                    if (done && performedSetsForDisplay in 1 until plannedSets) {
+                        def.prescriptionSummaryShort(setsOverride = performedSetsForDisplay)
+                    } else {
+                        def.prescriptionSummaryShort()
+                    }
                 val completedPair = sessionCompletedCardColors()
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -265,7 +271,7 @@ fun SessionDetailScreen(
                                 notes = def.notes,
                                 onNotesClick = { exerciseNoteDialog = def.notes },
                                 exerciseTypeLabel = def.exerciseTypeLabelFr(),
-                                prescriptionLine = def.prescriptionSummaryShort(),
+                                prescriptionLine = prescriptionLine,
                                 intensityLine = def.intensitySummary(),
                                 equipment = def.equipment,
                                 musclesLine = muscles,
@@ -308,15 +314,15 @@ fun SessionDetailScreen(
                         }
                         IconButton(
                             onClick = { vm.setExerciseDone(line.entry.id, !line.entry.doneInSession) },
-                            enabled = done || allSeriesValidated,
+                            enabled = done || hasAtLeastOneCompletedSet,
                             modifier = Modifier.align(Alignment.TopEnd),
                         ) {
                             Icon(
                                 imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
                                 contentDescription = when {
                                     done -> "Dévalider l’exercice"
-                                    allSeriesValidated -> "Valider l’exercice"
-                                    else -> "Validez toutes les séries avant de cocher l’exercice"
+                                    hasAtLeastOneCompletedSet -> "Valider l’exercice"
+                                    else -> "Cochez au moins une série pour valider l’exercice"
                                 },
                                 tint = if (done) {
                                     exerciseDoneCheckIconTint()
@@ -357,6 +363,8 @@ fun SessionDetailScreen(
                         confirmEnd = false
                         if (offerSaveAsTemplate) {
                             showSaveAsTemplate = true
+                        } else {
+                            onSessionEnded()
                         }
                     },
                     enabled = canEndSession,
@@ -407,6 +415,8 @@ fun SessionDetailScreen(
                                 templateNameFieldError = false
                                 snackbarScope.launch {
                                     snackbarHostState.showSnackbar("Modèle créé")
+                                    delay(900)
+                                    onSessionEnded()
                                 }
                             }
                         },
@@ -422,6 +432,7 @@ fun SessionDetailScreen(
                     showSaveAsTemplate = false
                     confirmSaveAsTemplate = false
                     templateNameFieldError = false
+                    onSessionEnded()
                 },
                 title = { Text("Enregistrer comme modèle ?") },
                 text = {
@@ -469,6 +480,7 @@ fun SessionDetailScreen(
                             showSaveAsTemplate = false
                             confirmSaveAsTemplate = false
                             templateNameFieldError = false
+                            onSessionEnded()
                         },
                     ) { Text("Non merci") }
                 },

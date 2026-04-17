@@ -16,7 +16,6 @@ import com.sport.gymtracker.data.HomeState
 import com.sport.gymtracker.data.StatisticsOverview
 import com.sport.gymtracker.data.local.ExerciseEntryEntity
 import com.sport.gymtracker.data.local.completedSetsPrefixCount
-import com.sport.gymtracker.data.local.fullExerciseSetsMask
 import com.sport.gymtracker.data.local.nextMaskSequentialSetToggle
 import com.sport.gymtracker.data.local.ExercisePerformanceHistoryRow
 import com.sport.gymtracker.data.local.TemplateExerciseEntity
@@ -252,7 +251,7 @@ class SessionDetailViewModel(
             if (ex.sessionId != sessionId) return@launch
             if (done) {
                 val bp = repo.getExerciseBlueprint(ex.exerciseId) ?: return@launch
-                if (ex.completedSetsMask != fullExerciseSetsMask(bp.sets)) return@launch
+                if (completedSetsPrefixCount(ex.completedSetsMask, bp.sets) == 0) return@launch
             }
             repo.updateExerciseDoneInSession(exerciseId, done)
         }

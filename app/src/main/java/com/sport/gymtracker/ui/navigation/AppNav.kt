@@ -220,6 +220,14 @@ fun GymTrackerNavHost(
                 SessionDetailScreen(
                     sessionId = id,
                     onBack = { navController.popBackStack() },
+                    onSessionEnded = {
+                        if (!navController.popBackStack(Routes.SESSIONS, false)) {
+                            navController.navigate(Routes.SESSIONS) {
+                                popUpTo(Routes.HOME) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
                     onAddNewExercise = {
                         navController.navigate("session/$id/exercise/0")
                     },
