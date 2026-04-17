@@ -16,15 +16,20 @@ Document de **contexte global** pour l’assistant (et les humains). À **relire
 
 | Élément | Valeur |
 |--------|--------|
-| IDE cible | Android Studio, AGP **8.7.2** |
-| Langage | Kotlin **2.0.21**, JVM **17** |
+| IDE cible | Android Studio, AGP **9.1.1** |
+| Langage | Kotlin **2.2.10**, JVM **17** |
+| Build | Gradle **9.3.1** (wrapper), **KSP** **2.3.6** |
 | UI | Jetpack **Compose**, **Material 3** |
 | Navigation | Navigation Compose (`AppNav.kt`) |
-| Persistance | **Room** 2.6.1 (schéma DB **16**), **KSP** |
+| Persistance | **Room** 2.8.4 (schéma DB **18**), génération via KSP |
 | Package | `com.sport.gymtracker` |
 | SDK | `minSdk` **26**, `compileSdk` / `targetSdk` **35** |
 
-Fichiers racine utiles : `settings.gradle.kts` (projet **GymTracker**), `app/build.gradle.kts`, `README.md`, `.gitignore`, `.cursorrules`, **`AI_MEMORY.md`** (ce fichier).
+**Kotlin sur `:app`** : avec AGP **9+**, compilation Kotlin **intégrée** au plugin Android — ne pas appliquer `org.jetbrains.kotlin.android` ; cible JVM dans `android { kotlin { compilerOptions { jvmTarget… } } }` (`app/build.gradle.kts`). KSP **≥ 2.3.4** pour Room sans erreur `kotlin.sourceSets` / Kotlin intégré.
+
+Fichiers racine utiles : `settings.gradle.kts` (projet **GymTracker**), `app/build.gradle.kts`, `gradle.properties`, `README.md`, `.gitignore`, `.cursorrules`, **`AI_MEMORY.md`** (ce fichier).
+
+**Gradle (méta)** : `gradle.properties` inclut entre autres **`android.dependency.useConstraints=false`** (alignement AGP 9+ ; remplace d’anciennes options dépréciées liées aux contraintes). `.vscode/settings.json` peut fixer `java.configuration.updateBuildConfiguration` sur `automatic` (Cursor / VS Code).
 
 ---
 
@@ -42,18 +47,20 @@ app/src/main/java/com/sport/gymtracker/
 ├── data/
 │   ├── GymRepository.kt, StatisticsOverview.kt
 │   ├── backup/ # Export / import JSON (GymDataJson, DataImport, matching blueprints)
-│   └── local/                    # AppDatabase, entités, DAOs, migrations
+│   └── local/                    # AppDatabase, entités, DAOs, migrations (voir ci‑dessous)
 ├── util/                         # ex. FrenchDateTime.kt
 └── domain/
-    ├── Models.kt                 # MuscleGroup, Difficulty, SkillLevel, constantes repos
-    ├── prescription / formats chargement
+    ├── Models.kt, ExerciseWorkMode.kt, ExercisePrescriptionFormat.kt, LoadSpecParse.kt
+    ├── ExerciseEditorSaveParams.kt
     └── OnAirLaDefenseCatalog.kt  # Catalogue d’équipements (contexte métier)
 ```
 
-**Navigation principale** (barre du bas) : Accueil, Modèles, Séances, Statistiques, **Données** (sauvegarde / restauration).  
+**Migrations Room** : historique principal dans `DatabaseMigrations.kt` (`MIGRATION_1_2` … `MIGRATION_13_14`) ; migrations récentes aussi dans `Migration14To15.kt` … `Migration17To18.kt` (enregistrées dans `AppDatabase`).
+
+**Navigation principale** (barre du bas) : Accueil, **Séances**, **Modèles**, Stats, **Données** (sauvegarde / restauration).  
 **Routes secondaires** (sans barre) : détail séance, édition exercice de séance, détail modèle, édition exercice de modèle, bibliothèque d’exercices, éditeur de blueprint, **progression par exercice** (liste + détail par blueprint).
 
-**Données Room** (`AppDatabase`) : `WorkoutSessionEntity`, `ExerciseEntryEntity`, `WorkoutTemplateEntity`, `TemplateExerciseEntity`, `ExerciseBlueprintEntity` — version schéma **16**, chaîne de **MIGRATION_1_2** … **MIGRATION_15_16**.
+**Données Room** (`AppDatabase`) : `WorkoutSessionEntity`, `ExerciseEntryEntity`, `WorkoutTemplateEntity`, `TemplateExerciseEntity`, `ExerciseBlueprintEntity` — version schéma **18**, chaîne **MIGRATION_1_2** … **MIGRATION_17_18** (ex. **16→17** : notes sur blueprint ; **17→18** : `completedSetsMask` sur les entrées d’exercice en séance).
 
 **Note.** Le builder appelle encore `fallbackToDestructiveMigration()` : acceptable en dev, **à revoir avant une release grand public** (perte de données si migration manquante).
 
@@ -63,9 +70,9 @@ app/src/main/java/com/sport/gymtracker/
 
 ### Application
 
-- Parcours **accueil** → création / ouverture de **séance**, **liste des séances**, **détail séance** avec exercices, édition d’exercice, timer de repos entre séries.
+- Parcours **accueil** → création / ouverture de **séance**, **liste des séances**, **détail séance** avec exercices, édition d’exercice, timer de repos entre séries, suivi des séries complétées (masque en base).
 - **Modèles** d’entraînement : liste, détail, ajout / édition d’exercices de modèle.
-- **Bibliothèque d’exercices** (blueprints) + écran d’édition blueprint.
+- **Bibliothèque d’exercices** (blueprints) + écran d’édition blueprint (notes libres sur la fiche).
 - **Statistiques** (écran dédié + logique `StatisticsOverview` / composants de graphiques).
 - **Sauvegarde & restauration** : écran `BackupScreen` + JSON via `data/backup/` (export / import, alignement des blueprints).
 - **Progression** : parcours liste / détail de progression lié aux blueprints (`ExerciseProgressListScreen`, `ExerciseProgressDetailScreen`).
@@ -95,7 +102,7 @@ app/src/main/java/com/sport/gymtracker/
 | **Accessibilité** | Content descriptions, tailles tactiles, contrastes. |
 | **CI** | Build Gradle sur push (GitHub Actions, etc.) si le dépôt devient distant. |
 
-**Dernière mise à jour mémo** : 12 avril 2026 — schéma Room **16**, onglet barre du bas **Données** (backup), dossier **`data/backup/`**, écrans **progression exercice**.
+**Dernière mise à jour mémo** : 17 avril 2026 — stack ci‑dessus ; **Kotlin intégré** + KSP **2.3.6** ; `gradle.properties` (**`useConstraints=false`** et nettoyage options AGP dépréciées).
 
 ---
 
